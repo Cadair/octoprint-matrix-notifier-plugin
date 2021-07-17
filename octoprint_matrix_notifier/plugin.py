@@ -1,30 +1,72 @@
 import octoprint.plugin
-from nio.client.async_client import AsyncClient
+from .matrix import SimpleMatrixClient
 
 
 class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
                            octoprint.plugin.AssetPlugin,
                            octoprint.plugin.TemplatePlugin,
-                           octoprint.plugin.EventHandlerPlugin,
                            octoprint.plugin.StartupPlugin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._api = None
+        self.client = None
+        self._room = None
+        self._room_alias = None
 
     def on_after_startup(self):
         self._logger.info("Logging into Matrix")
+        self.client = SimpleMatrixClient(self._settings.get(['homeserver']),
+                                         access_token=self._settings.get(['access_token']),
+                                         logger=self._logger)
+
+    def send_message(self, text):
+        content = {"msgtype": "m.text", "body": text}
+        self.client.room_send(self.room_id, "m.room.message", content)
+
+    @property
+    def room_id(self):
+        """
+        The room_id for the currently configured room.
+
+        We cache this based on the config setting so we don't have to resolve
+        the alias more than we need to.
+        """
+        room = self._settings.get(["room"])
+
+        if room.startswith("!"):
+            self._room = room
+            return self._room
+
+        if room.startswith("#"):
+            if room == self._room_alias and self._room:
+                return self._room
+
+            room_id = self.client.room_resolve_alias(room)["room_id"]
+
+            self._room = room_id
+            self._room_alias = room
+
+            return self._room
+
+        raise ValueError("The room configuration option must start with ! or #")
 
     def get_settings_defaults(self):
-        self._settings_keys = ("username", "password", "homeserver", "room")
-        return {key: "" for key in self._settings_keys}
+        return {
+            "username": "@example:matrix.org",
+            "homeserver": "https://matrix.org",
+            "access_token": "",
+            "room": "#myprinter:matrix.org",
+            "send_snapshot": True,
+            "templates": {
+                "done": "Print Completed after {elapsed_time}.",
+                "failed": "Print Failed after {elapsed_time}.",
+                "paused": "Print Paused at {elapsed_time}.",
+                "progress": "Print progress: {pct_complete} - {print_name}, Elapsed: {elapsed_time}, Remaining: {remaining_time}."
+            }
+        }
 
     def get_template_configs(self):
         return [dict(type="settings", name="Matrix Notifier", custom_bindings=False)]
-
-    def on_event(self, event, payload):
-        self._logger.info("TESTING: event is %s: %s" % (event, payload))
-        self._logger.info(", ".join([str(self._settings.get([k])) for k in self._settings_keys]))
 
     def get_assets(self):
         # Define your plugin's asset files to automatically include in the

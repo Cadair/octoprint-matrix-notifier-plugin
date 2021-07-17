@@ -11,40 +11,65 @@
 		</div>
 	</div>
 
-	<h4>{{ _('Message Content') }}</h4>
+	<div class="control-group" title="{{ _('Server Address') }}">
+		<label class="control-label">{{ _('Server Address') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.homeserver">
+		</div>
+	</div>
+
+	<div class="control-group" title="{{ _('Access Token') }}">
+		<label class="control-label">{{ _('Access Token') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.access_token">
+		</div>
+	</div>
+
+	<div class="control-group" title="{{ _('Room Alias or ID') }}">
+		<label class="control-label">{{ _('Room Address') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.room">
+		</div>
+	</div>
+
+  <h4>{{ _('Message Content') }}</h4>
 
 	<h5>{{ _('Done') }}</h5>
-	
-	<p>{{ _('The template may contain the tags <code>{user}</code>, <code>{host}</code>, <code>{filename}</code>, <code>{elapsed_time}</code>.') }}</p>
 
 	<div class="control-group" title="{{ _('Content of notification email') }}">
 		<label class="control-label">{{ _('Body') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.message_format.body">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.done">
 		</div>
 	</div>
-	
+
 	<h5>{{ _('Failed') }}</h5>
-	
-	<p>{{ _('The template may contain the tags <code>{user}</code>, <code>{host}</code>, <code>{filename}</code>, <code>{elapsed_time}</code>, <code>{reason}</code>.') }}</p>
 
 	<div class="control-group" title="{{ _('Content of notification email') }}">
 		<label class="control-label">{{ _('Body') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.failed_message_format.body">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.failed">
 		</div>
 	</div>
 
-    <h5>{{ _('Paused') }}</h5>
-
-	<p>{{ _('The template may contain the tags <code>{user}</code>, <code>{host}</code>, and <code>{filename}</code>.') }}</p>
+  <h5>{{ _('Paused') }}</h5>
 
 	<div class="control-group" title="{{ _('Content of notification email') }}">
 		<label class="control-label">{{ _('Body') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.paused_message_format.body">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.paused">
 		</div>
 	</div>
+
+  <h5>{{ _('Progress') }}</h5>
+
+	<div class="control-group" title="{{ _('Content of notification email') }}">
+		<label class="control-label">{{ _('Body') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.progress">
+		</div>
+	</div>
+
 
 	<h4>{{ _('Snapshot Attachments') }}</h4>
 
@@ -53,7 +78,7 @@
 	<div class="control-group">
 		<div class="controls" title="{{ _('send snapshot') }}">
 			<label class="checkbox">
-				<input type="checkbox" data-bind="checked: settings.plugins.matrix_notifier.send_snapshot" /> {{ _('Send Snapshot') }} 
+				<input type="checkbox" data-bind="checked: settings.plugins.matrix_notifier.send_snapshot" /> {{ _('Send Snapshot') }}
 			</label>
 		</div>
 	</div>
