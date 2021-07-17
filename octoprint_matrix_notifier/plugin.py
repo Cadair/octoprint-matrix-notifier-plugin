@@ -1,4 +1,9 @@
+import time
+from pathlib import Path
+
 import octoprint.plugin
+from octoprint.timelapse import Timelapse
+
 from .matrix import SimpleMatrixClient
 
 
@@ -19,9 +24,7 @@ class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
                                          access_token=self._settings.get(['access_token']),
                                          logger=self._logger)
 
-    def send_message(self, text):
-        content = {"msgtype": "m.text", "body": text}
-        self.client.room_send(self.room_id, "m.room.message", content)
+        self._logger.info(self.send_snapshot())
 
     @property
     def room_id(self):
@@ -96,3 +99,34 @@ class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
                 "pip": "https://github.com/Cadair/OctoPrint-Matrix_Notifier/archive/{target_version}.zip",
             }
         }
+
+    def capture_snapshot(self):
+        if not self._settings.global_get(["webcam", "snapshot"]):
+            self._logger.info("Please configure the webcam snapshot settings before enabling sending snapshots!")
+
+        tl = Timelapse()
+        tl._image_number = 0
+        tl._capture_errors = 0
+        tl._capture_success = 0
+        tl._in_timelapse = True
+        tl._file_prefix = time.strftime("%Y%m%d%H%M%S")
+        file_path = Path(tl.capture_image())
+
+        # Ensure the file has actually finished being written before we return
+        for i in range(10):
+            if file_path.exists():
+                break
+            time.sleep(0.1)
+
+        return file_path
+
+    def send_snapshot(self):
+        """
+        Capture and then send a snapshot from the camera.
+        """
+        file_path = self.capture_snapshot()
+
+        mxc_url = self.client.upload_media(file_path, "image/jpg")["content_uri"]
+
+        content = {"msgtype": "m.image", "body": file_path.name, "info": {"mimetype": "image/jpg"}, "url": mxc_url}
+        return self.client.room_send(self.room_id, "m.room.message", content)

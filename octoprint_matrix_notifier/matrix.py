@@ -1,13 +1,13 @@
 """
 A *really* barebones matrix client.
 """
-from urllib.request import Request, urlopen
+import json
+import logging
 from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from nio.api import Api
-import logging
-import json
 
 
 class SimpleMatrixClient:
@@ -36,7 +36,7 @@ class SimpleMatrixClient:
             data = data.encode("UTF-8")
 
         req = Request(url, data=data, headers=headers, method=method)
-        self.logger.info("%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), data, headers)
+        self.logger.info("%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), data[:100], headers)
 
         resp = urlopen(req)
         # TODO: Detect matrix errors here
@@ -64,3 +64,19 @@ class SimpleMatrixClient:
 
         method, path = Api.whoami(self.access_token)
         return self._send(method, path)
+
+    def room_send_text_message(self, text):
+        content = {"msgtype": "m.text", "body": text}
+        self.client.room_send(self.room_id, "m.room.message", content)
+
+    def upload_media(self, media_path, content_type):
+        with open(media_path, "rb") as fobj:
+            data = fobj.read()
+
+        return self._send(
+            "POST",
+            f"/_matrix/media/r0/upload?access_token={self.access_token}",
+            data,
+            content_type=content_type,
+            content_length=len(data),
+        )
