@@ -34,39 +34,42 @@
 
   <h4>{{ _('Message Content') }}</h4>
 
-	<h5>{{ _('Done') }}</h5>
-
-	<div class="control-group" title="{{ _('Content of notification email') }}">
-		<label class="control-label">{{ _('Body') }}</label>
+	<div class="control-group" title="{{ _('Content of print completed notification') }}">
+		<label class="control-label">{{ _('Print Started') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.done">
+      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintStarted.template"></textarea>
 		</div>
 	</div>
 
-	<h5>{{ _('Failed') }}</h5>
-
-	<div class="control-group" title="{{ _('Content of notification email') }}">
-		<label class="control-label">{{ _('Body') }}</label>
+	<div class="control-group" title="{{ _('Content of print completed notification') }}">
+		<label class="control-label">{{ _('Print Done') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.failed">
+      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintDone.template"></textarea>
 		</div>
 	</div>
 
-  <h5>{{ _('Paused') }}</h5>
-
-	<div class="control-group" title="{{ _('Content of notification email') }}">
-		<label class="control-label">{{ _('Body') }}</label>
+	<div class="control-group" title="{{ _('Content of print failed notification') }}">
+		<label class="control-label">{{ _('Print Failed') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.paused">
+      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintFailed.template"></textarea>
 		</div>
 	</div>
 
-  <h5>{{ _('Progress') }}</h5>
-
-	<div class="control-group" title="{{ _('Content of notification email') }}">
-		<label class="control-label">{{ _('Body') }}</label>
+	<div class="control-group" title="{{ _('Content of print paused notification') }}">
+		<label class="control-label">{{ _('Print Paused') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.templates.progress">
+      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintPaused.template"></textarea>
+		</div>
+	</div>
+
+	<div class="control-group" title="{{ _('Content of print progress notification') }}">
+		<label class="control-label">{{ _('Progress') }}</label>
+		<div class="controls">
+      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.progress.template"></textarea>
+		</div>
+		<label class="control-label">{{ _('Progress Interval Percent') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.events.progress.interval">
 		</div>
 	</div>
 

@@ -1,15 +1,20 @@
+import datetime
 import io
 import time
 from pathlib import Path
+from textwrap import dedent
 
 import octoprint.plugin
+import octoprint.util
 from get_image_size import get_image_size_from_bytesio
 from octoprint.timelapse import Timelapse
 
 from .matrix import SimpleMatrixClient
 
 
-class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
+class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
+                           octoprint.plugin.ProgressPlugin,
+                           octoprint.plugin.SettingsPlugin,
                            octoprint.plugin.AssetPlugin,
                            octoprint.plugin.TemplatePlugin,
                            octoprint.plugin.StartupPlugin):
@@ -21,12 +26,12 @@ class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
         self._room_alias = None
 
     def on_after_startup(self):
-        self._logger.info("Logging into Matrix")
         self.client = SimpleMatrixClient(self._settings.get(['homeserver']),
                                          access_token=self._settings.get(['access_token']),
                                          logger=self._logger)
 
-        self._logger.info(self.send_snapshot())
+        user_id = self.client.whoami()["user_id"]
+        self._logger.info("Logged into matrix as user: %s", user_id)
 
     @property
     def room_id(self):
@@ -62,11 +67,55 @@ class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
             "access_token": "",
             "room": "#myprinter:matrix.org",
             "send_snapshot": True,
-            "templates": {
-                "done": "Print Completed after {elapsed_time}.",
-                "failed": "Print Failed after {elapsed_time}.",
-                "paused": "Print Paused at {elapsed_time}.",
-                "progress": "Print progress: {pct_complete} - {print_name}, Elapsed: {elapsed_time}, Remaining: {remaining_time}."
+            "events": {
+                "PrintStarted": {
+                    "template": dedent("""\
+                    ## Print Started 🚀
+
+                    **File**: {filename}
+                    **User**: {user}
+                    """),
+                    "enabled": True,
+                },
+                "PrintDone": {
+                    "template": dedent("""\
+                    ## Print Completed 🚀
+
+                    **File**: {filename}
+                    **User**: {user}
+                    **Elapsed Time**: {elapsed_time}
+                    """),
+                    "enabled": True,
+                },
+                "PrintFailed": {
+                    "template": dedent("""\
+                    ## Print Failed 😞
+
+                    **File**: {filename}
+                    **User**: {user}
+                    **Elapsed Time**: {elapsed_time}
+                    """),
+                    "enabled": True,
+                },
+                "PrintPaused": {
+                    "template": dedent("""\
+                    ## Print Paused ⏸️
+
+                    **File**: {filename}
+                    **User**: {user}
+                    **Elapsed Time**: {elapsed_time}
+                    """),
+                    "enabled": True,
+                },
+                "progress": {
+                    "template": dedent("""\
+                    ## Print Progress 🏃
+
+                    **File**: {filename}
+                    """),
+                    "enabled": True,
+                    "interval": 2,
+                }
             }
         }
 
@@ -101,6 +150,53 @@ class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
                 "pip": "https://github.com/Cadair/OctoPrint-Matrix_Notifier/archive/{target_version}.zip",
             }
         }
+
+    def on_event(self, event, payload):
+        # see https://docs.octoprint.org/en/master/events/
+
+        # If we don't support this event, exit
+        if not self._settings.get(["events", event]):
+            return
+
+        self._logger.info("Got event %s with payload %s", event, payload)
+
+        if self._settings.get(["events", event, "enabled"]):
+            template = self._settings.get(["events", event, "template"])
+
+        tags = {
+            "filename": payload["name"],
+            "reason": payload.get("reason", "None"),
+            "user": payload["user"],
+            "elapsed_time": "unknown",
+        }
+        if "time" in payload:
+            tags["elapsed_time"] = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=payload["time"]))
+
+        message = template.format(**tags)
+
+        self.client.room_send_markdown_message(self.room_id, message)
+        if self._settings.get(["send_snapshot"]):
+            self.send_snapshot()
+
+    def on_print_progress(self, storage, path, progress):
+        interval = self._settings.get(["events", "progress", "interval"]) or 1
+        self._logger.info("Progress, %s, %s", progress, interval)
+        if not progress or not(progress / interval == progress // interval):
+            return
+
+        if self._settings.get(["events", "progress", "enabled"]):
+            template = self._settings.get(["events", "progress", "template"])
+
+        self._logger.info("Progress")
+
+        tags = {"filename": path}
+
+        message = template.format(**tags)
+
+        self.client.room_send_markdown_message(self.room_id, message)
+        if self._settings.get(["send_snapshot"]):
+            self.send_snapshot()
+
 
     def capture_snapshot(self):
         if not self._settings.global_get(["webcam", "snapshot"]):

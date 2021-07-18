@@ -7,6 +7,7 @@ from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
+import markdown
 from nio.api import Api
 
 
@@ -32,11 +33,13 @@ class SimpleMatrixClient:
         if content_length is not None:
             headers["Content-Length"] = str(content_length)
 
+        log_data = None if data is None else "binary_data"
         if isinstance(data, str):
             data = data.encode("UTF-8")
+            log_data = data
 
         req = Request(url, data=data, headers=headers, method=method)
-        self.logger.info("%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), data[:100], headers)
+        self.logger.info("%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), log_data, headers)
 
         resp = urlopen(req)
         # TODO: Detect matrix errors here
@@ -65,10 +68,6 @@ class SimpleMatrixClient:
         method, path = Api.whoami(self.access_token)
         return self._send(method, path)
 
-    def room_send_text_message(self, text):
-        content = {"msgtype": "m.text", "body": text}
-        self.client.room_send(self.room_id, "m.room.message", content)
-
     def upload_media(self, media_data, content_type):
         return self._send(
             "POST",
@@ -77,3 +76,12 @@ class SimpleMatrixClient:
             content_type=content_type,
             content_length=len(media_data),
         )
+
+    def room_send_markdown_message(self, room_id, text):
+        content = {
+            "msgtype": "m.text",
+            "body": text,
+            "format": "org.matrix.custom.html",
+            "formatted_body": markdown.markdown(text, extensions=['nl2br'])
+        }
+        self.room_send(room_id, "m.room.message", content)
