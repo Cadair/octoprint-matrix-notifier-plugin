@@ -1,7 +1,9 @@
+import io
 import time
 from pathlib import Path
 
 import octoprint.plugin
+from get_image_size import get_image_size_from_bytesio
 from octoprint.timelapse import Timelapse
 
 from .matrix import SimpleMatrixClient
@@ -126,7 +128,17 @@ class MatrixNotifierPlugin(octoprint.plugin.SettingsPlugin,
         """
         file_path = self.capture_snapshot()
 
-        mxc_url = self.client.upload_media(file_path, "image/jpg")["content_uri"]
+        with open(file_path, "rb") as fobj:
+            data = fobj.read()
 
-        content = {"msgtype": "m.image", "body": file_path.name, "info": {"mimetype": "image/jpg"}, "url": mxc_url}
+        mxc_url = self.client.upload_media(data, "image/jpg")["content_uri"]
+
+        img_w, img_h = get_image_size_from_bytesio(io.BytesIO(data), len(data))
+
+        content = {
+            "msgtype": "m.image",
+            "body": file_path.name,
+            "info": {"mimetype": "image/jpg", "w": img_w, "h": img_h},
+            "url": mxc_url,
+        }
         return self.client.room_send(self.room_id, "m.room.message", content)

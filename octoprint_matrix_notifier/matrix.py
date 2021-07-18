@@ -69,14 +69,11 @@ class SimpleMatrixClient:
         content = {"msgtype": "m.text", "body": text}
         self.client.room_send(self.room_id, "m.room.message", content)
 
-    def upload_media(self, media_path, content_type):
-        with open(media_path, "rb") as fobj:
-            data = fobj.read()
-
+    def upload_media(self, media_data, content_type):
         return self._send(
             "POST",
             f"/_matrix/media/r0/upload?access_token={self.access_token}",
-            data,
+            media_data,
             content_type=content_type,
-            content_length=len(data),
+            content_length=len(media_data),
         )
