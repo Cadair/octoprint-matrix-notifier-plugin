@@ -118,7 +118,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                 "current": self._plugin_version,
 
                 # update method: pip
-                "pip": "https://github.com/Cadair/OctoPrint-Matrix_Notifier/archive/{target_version}.zip",
+                "pip": "https://github.com/Cadair/octoprint-matrix-notifier-plugin/archive/{target_version}.zip",
             }
         }
 
