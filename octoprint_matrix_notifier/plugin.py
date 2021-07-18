@@ -164,12 +164,14 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
     @property
     def temperature_status_string(self):
         """
-        Generate a string representing the current temperatures of all nozzles and the bed.
+        A string representing the current temperatures of all nozzles and the bed.
         """
+        tool_template = "{tool_name}: {current_temp}°C / {target_temp}°C"
+
         printer_temps = self._printer.get_current_temperatures()
         tool_keys = [key for key in printer_temps if self._printer.valid_tool_regex.match(key)]
+
         # If we only have one nozzle then don't number it.
-        tool_template = "{tool_name}: {current_temp}°C / {target_temp}°C"
         first_key = "Nozzle" if len(tool_keys) == 1 else "Nozzle 0"
 
         tools_components = []
@@ -179,9 +181,11 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             else:
                 tool_name = key.replace("tool", "Nozzle ")
 
-            tools_components.append(tool_template.format(tool_name=tool_name,
-                                                         current_temp=printer_temps[key]["actual"],
-                                                         target_temp=printer_temps[key]["target"]))
+            tools_components.append(
+                tool_template.format(tool_name=tool_name,
+                                     current_temp=printer_temps[key]["actual"],
+                                     target_temp=printer_temps[key]["target"]))
+
         tool_string = " ".join(tools_components)
 
         return f"Bed: {printer_temps['bed']['actual']}°C / {printer_temps['bed']['target']}°C " + tool_string
@@ -214,7 +218,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         self._logger.info("Got event %s with payload %s", event, payload)
 
-        if self._settings.get(["events", event, "enabled"]):
+        if self._settings.get(["events", event, "enabled"], True):
             template = self._settings.get(["events", event, "template"])
 
         keys = self.generate_message_keys()
@@ -247,7 +251,6 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         self.client.room_send_markdown_message(self.room_id, message)
         if self._settings.get(["send_snapshot"]):
             self.send_snapshot()
-
 
     def capture_snapshot(self):
         if not self._settings.global_get(["webcam", "snapshot"]):
@@ -288,4 +291,5 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             "info": {"mimetype": "image/jpg", "w": img_w, "h": img_h},
             "url": mxc_url,
         }
+
         return self.client.room_send(self.room_id, "m.room.message", content)
