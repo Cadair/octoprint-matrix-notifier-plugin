@@ -4,12 +4,12 @@
 
 	<h4>{{ _('Server and Room Settings') }}</h4>
 
-	<div class="control-group" title="{{ _('Username (mxid)') }}">
-		<label class="control-label">{{ _('Username') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.username">
-		</div>
-	</div>
+	{# <div class="control-group" title="{{ _('Username (mxid)') }}"> #}
+	{# 	<label class="control-label">{{ _('Username') }}</label> #}
+	{# 	<div class="controls"> #}
+	{# 		<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.username"> #}
+	{# 	</div> #}
+	{# </div> #}
 
 	<div class="control-group" title="{{ _('Server Address') }}">
 		<label class="control-label">{{ _('Server Address') }}</label>
@@ -21,7 +21,7 @@
 	<div class="control-group" title="{{ _('Access Token') }}">
 		<label class="control-label">{{ _('Access Token') }}</label>
 		<div class="controls">
-			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.access_token">
+			<input type="password" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.access_token">
 		</div>
 	</div>
 
@@ -37,42 +37,41 @@
 	<div class="control-group" title="{{ _('Content of print completed notification') }}">
 		<label class="control-label">{{ _('Print Started') }}</label>
 		<div class="controls">
-      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintStarted.template"></textarea>
+      <textarea class="input-block-level" rows="6" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintStarted.template"></textarea>
 		</div>
 	</div>
 
 	<div class="control-group" title="{{ _('Content of print completed notification') }}">
 		<label class="control-label">{{ _('Print Done') }}</label>
 		<div class="controls">
-      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintDone.template"></textarea>
+      <textarea class="input-block-level" rows="6" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintDone.template"></textarea>
 		</div>
 	</div>
 
 	<div class="control-group" title="{{ _('Content of print failed notification') }}">
 		<label class="control-label">{{ _('Print Failed') }}</label>
 		<div class="controls">
-      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintFailed.template"></textarea>
+      <textarea class="input-block-level" rows="6" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintFailed.template"></textarea>
 		</div>
 	</div>
 
 	<div class="control-group" title="{{ _('Content of print paused notification') }}">
 		<label class="control-label">{{ _('Print Paused') }}</label>
 		<div class="controls">
-      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintPaused.template"></textarea>
+      <textarea class="input-block-level" rows="6" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.PrintPaused.template"></textarea>
 		</div>
 	</div>
 
 	<div class="control-group" title="{{ _('Content of print progress notification') }}">
 		<label class="control-label">{{ _('Progress') }}</label>
 		<div class="controls">
-      <textarea rows="5" cols="200" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.progress.template"></textarea>
+      <textarea class="input-block-level" rows="6" name="text" placeholder="Enter text" data-bind="value: settings.plugins.matrix_notifier.events.progress.template"></textarea>
 		</div>
 		<label class="control-label">{{ _('Progress Interval Percent') }}</label>
 		<div class="controls">
 			<input type="text" class="input-block-level" data-bind="value: settings.plugins.matrix_notifier.events.progress.interval">
 		</div>
 	</div>
-
 
 	<h4>{{ _('Snapshot Attachments') }}</h4>
 

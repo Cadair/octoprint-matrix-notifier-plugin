@@ -33,6 +33,8 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         user_id = self.client.whoami()["user_id"]
         self._logger.info("Logged into matrix as user: %s", user_id)
 
+        self.generate_message_keys()
+
     @property
     def room_id(self):
         """
@@ -74,6 +76,8 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
+                    **Estimated Print Time**: {total_estimated_time}
+                    {temperature}
                     """),
                     "enabled": True,
                 },
@@ -83,7 +87,8 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
-                    **Elapsed Time**: {elapsed_time}
+                    **Time**: {elapsed_time} / {total_estimated_time}
+                    {temperature}
                     """),
                     "enabled": True,
                 },
@@ -93,7 +98,8 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
-                    **Elapsed Time**: {elapsed_time}
+                    **Time**: {elapsed_time} / {total_estimated_time}
+                    {temperature}
                     """),
                     "enabled": True,
                 },
@@ -103,18 +109,22 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
-                    **Elapsed Time**: {elapsed_time}
+                    **Time**: {elapsed_time} / {total_estimated_time}
+                    {temperature}
                     """),
                     "enabled": True,
                 },
                 "progress": {
                     "template": dedent("""\
-                    ## Print Progress 🏃
+                    ## Print Progress {pct_completed}% 🏃
 
                     **File**: {filename}
+                    **User**: {user}
+                    **Time**: {elapsed_time} / {total_estimated_time}
+                    {temperature}
                     """),
                     "enabled": True,
-                    "interval": 2,
+                    "interval": 1,
                 }
             }
         }
@@ -151,6 +161,50 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             }
         }
 
+    @property
+    def temperature_status_string(self):
+        """
+        Generate a string representing the current temperatures of all nozzles and the bed.
+        """
+        printer_temps = self._printer.get_current_temperatures()
+        tool_keys = [key for key in printer_temps if self._printer.valid_tool_regex.match(key)]
+        # If we only have one nozzle then don't number it.
+        tool_template = "{tool_name}: {current_temp}°C / {target_temp}°C"
+        first_key = "Nozzle" if len(tool_keys) == 1 else "Nozzle 0"
+
+        tools_components = []
+        for i, key in enumerate(tool_keys):
+            if i == 0:
+                tool_name = first_key
+            else:
+                tool_name = key.replace("tool", "Nozzle ")
+
+            tools_components.append(tool_template.format(tool_name=tool_name,
+                                                         current_temp=printer_temps[key]["actual"],
+                                                         target_temp=printer_temps[key]["target"]))
+        tool_string = " ".join(tools_components)
+
+        return f"Bed: {printer_temps['bed']['actual']}°C / {printer_temps['bed']['target']}°C " + tool_string
+
+    @staticmethod
+    def _seconds_delta_to_string(seconds):
+        if seconds is None:
+            return
+        delta = datetime.timedelta(seconds=seconds)
+        return octoprint.util.get_formatted_timedelta(delta)
+
+    def generate_message_keys(self):
+        keys = {}
+        keys["temperature"] = self.temperature_status_string
+        printer_data = self._printer.get_current_data()
+        keys["remaining_time"] = self._seconds_delta_to_string(printer_data["progress"]["printTimeLeft"])
+        keys["total_estimated_time"] = self._seconds_delta_to_string(printer_data["job"]["estimatedPrintTime"])
+        keys["elapsed_time"] = self._seconds_delta_to_string(printer_data["progress"]["printTime"])
+        keys["user"] = printer_data["job"]["user"]
+        keys["filename"] = printer_data["job"]["file"]["name"]
+
+        return keys
+
     def on_event(self, event, payload):
         # see https://docs.octoprint.org/en/master/events/
 
@@ -163,16 +217,16 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         if self._settings.get(["events", event, "enabled"]):
             template = self._settings.get(["events", event, "template"])
 
-        tags = {
-            "filename": payload["name"],
-            "reason": payload.get("reason", "None"),
-            "user": payload["user"],
-            "elapsed_time": "unknown",
+        keys = self.generate_message_keys()
+        keys = {
+            "reason": payload.get("reason", None),
+            "elapsed_time": None,
+            **keys
         }
         if "time" in payload:
-            tags["elapsed_time"] = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=payload["time"]))
+            keys["elapsed_time"] = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=payload["time"]))
 
-        message = template.format(**tags)
+        message = template.format(**keys)
 
         self.client.room_send_markdown_message(self.room_id, message)
         if self._settings.get(["send_snapshot"]):
@@ -180,18 +234,15 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
     def on_print_progress(self, storage, path, progress):
         interval = self._settings.get(["events", "progress", "interval"]) or 1
-        self._logger.info("Progress, %s, %s", progress, interval)
         if not progress or not(progress / interval == progress // interval):
             return
 
         if self._settings.get(["events", "progress", "enabled"]):
             template = self._settings.get(["events", "progress", "template"])
 
-        self._logger.info("Progress")
-
-        tags = {"filename": path}
-
-        message = template.format(**tags)
+        keys = self.generate_message_keys()
+        keys["pct_completed"] = progress
+        message = template.format(**keys)
 
         self.client.room_send_markdown_message(self.room_id, message)
         if self._settings.get(["send_snapshot"]):
