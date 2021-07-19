@@ -179,7 +179,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         self._logger.info("Got event %s with payload %s", event, payload)
 
-        if self._settings.get(["events", event, "enabled"], True):
+        if self._settings.get(["events", event, "enabled"]) or True:
             template = self._settings.get(["events", event, "template"])
 
         keys = self.generate_message_keys()
