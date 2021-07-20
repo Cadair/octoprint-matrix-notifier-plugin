@@ -60,3 +60,4 @@ Take the event name from https://docs.octoprint.org/en/master/events/ and add a 
 ```
 
 This would send messages on the "Connected" event. Find the existing section of the config and edit it where appropriate rather than adding new sections.
+Note that not all events have been tested, please [open an issue](https://github.com/Cadair/octoprint-matrix-notifier-plugin/issues/new) if you encounter an issue with a specific event.
