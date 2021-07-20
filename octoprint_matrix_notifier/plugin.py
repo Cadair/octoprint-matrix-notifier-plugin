@@ -20,7 +20,6 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.client = None
         self._room = None
         self._room_alias = None
 
@@ -91,11 +90,18 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             }
         }
 
-    def on_after_startup(self):
-        self.client = SimpleMatrixClient(self._settings.get(['homeserver']),
-                                         access_token=self._settings.get(['access_token']),
-                                         logger=self._logger)
+    @property
+    def client(self):
+        """
+        The matrix client.
 
+        This is a property to react to configuration changes without reloading the plugin.
+        """
+        return SimpleMatrixClient(self._settings.get(['homeserver']),
+                                  access_token=self._settings.get(['access_token']),
+                                  logger=self._logger)
+
+    def on_after_startup(self):
         user_id = self.client.whoami()["user_id"]
         self._logger.info("Logged into matrix as user: %s", user_id)
 
@@ -130,6 +136,9 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         tool_template = "{tool_name}: {current_temp}°C / {target_temp}°C"
 
         printer_temps = self._printer.get_current_temperatures()
+        if "bed" not in printer_temps:
+            return None
+
         tool_keys = [key for key in printer_temps if self._printer.valid_tool_regex.match(key)]
 
         # If we only have one nozzle then don't number it.
