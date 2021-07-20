@@ -186,6 +186,8 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         if not self._settings.get(["events", event]):
             return
 
+        payload = payload or dict()
+
         self._logger.info("Got event %s with payload %s", event, payload)
 
         if self._settings.get(["events", event, "enabled"]) or True:
