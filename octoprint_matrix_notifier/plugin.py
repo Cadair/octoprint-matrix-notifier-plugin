@@ -120,7 +120,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                 # version check: github repository
                 "type": "github_release",
                 "user": "Cadair",
-                "repo": "OctoPrint-Matrix_Notifier",
+                "repo": "octoprint-matrix-notifier-plugin",
                 "current": self._plugin_version,
 
                 # update method: pip
