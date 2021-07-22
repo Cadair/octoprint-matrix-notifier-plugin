@@ -48,7 +48,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
-                    **Time**: {elapsed_time} / {total_estimated_time}
+                    **Elapsed Time**: {elapsed_time}
                     {temperature}
                     """),
                     "enabled": True,
@@ -59,7 +59,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
-                    **Time**: {elapsed_time} / {total_estimated_time}
+                    **Elapsed Time**: {elapsed_time}
                     {temperature}
                     """),
                     "enabled": True,
@@ -70,7 +70,9 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
-                    **Time**: {elapsed_time} / {total_estimated_time}
+                    **Elapsed Time**: {elapsed_time}
+                    **Remaining Time**: {remaining_time}
+                    **Total Estimated Time**:{total_estimated_time}
                     {temperature}
                     """),
                     "enabled": True,
@@ -81,7 +83,9 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
                     **File**: {filename}
                     **User**: {user}
-                    **Time**: {elapsed_time} / {total_estimated_time}
+                    **Elapsed Time**: {elapsed_time}
+                    **Remaining Time**: {remaining_time}
+                    **Total Estimated Time**:{total_estimated_time}
                     {temperature}
                     """),
                     "enabled": True,
@@ -210,7 +214,10 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
     def on_print_progress(self, storage, path, progress):
         interval = self._settings.get(["events", "progress", "interval"]) or 1
-        if not progress or not(progress / interval == progress // interval):
+        # Do not report if no progress, the progress isn't a multiple of
+        # interval or the progress is 100% because we have PrintCompleted for
+        # that.
+        if not progress or not(progress / interval == progress // interval) or progress == 100:
             return
 
         if self._settings.get(["events", "progress", "enabled"]):
