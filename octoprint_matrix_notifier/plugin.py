@@ -213,7 +213,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             self.send_snapshot()
 
     def on_print_progress(self, storage, path, progress):
-        interval = self._settings.get(["events", "progress", "interval"]) or 1
+        interval = int(self._settings.get(["events", "progress", "interval"]) or 1)
         # Do not report if no progress, the progress isn't a multiple of
         # interval or the progress is 100% because we have PrintCompleted for
         # that.
