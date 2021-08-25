@@ -18,3 +18,12 @@ The easiest way to obtain an access token is to login with Element, copy the acc
 ## Credits
 
 This plugin is heavily inspired by [OctoSlack](https://github.com/fraschetti/Octoslack) and I used [Octoprint Signal Notifier](https://github.com/aerickson/OctoPrint_Signal-Notifier) to understand how to write an octoprint plugin and how to capture a snapshot from the camera.
+
+## Developer Info
+
+### Making a Release
+
+1. Update the version number in `setup.py`, push to `main`.
+1. Check the release draft on GitHub, make sure version number matches the
+   `setup.py`.
+1. Publish Release on GitHub.
