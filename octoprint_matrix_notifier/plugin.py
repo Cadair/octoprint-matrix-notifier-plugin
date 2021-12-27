@@ -301,7 +301,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             )
             return None
 
-        self._logger.info("Snapshot URL: " + str(snapshot_url))
+        self._logger.debug("Snapshot URL: " + str(snapshot_url))
         data = None
         if snapshot_url:
             try:
@@ -313,7 +313,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         flipH = self._settings.global_get(["webcam", "flipH"])
         flipV = self._settings.global_get(["webcam", "flipV"])
         rotate = self._settings.global_get(["webcam", "rotate90"])
-        self._logger.info(
+        self._logger.debug(
             "Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate
         )
         if data == None:
