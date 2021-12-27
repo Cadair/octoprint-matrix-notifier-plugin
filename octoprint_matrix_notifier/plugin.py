@@ -327,8 +327,8 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         https_proxy = self._settings.get(["https_proxy"])
         return {"http": http_proxy, "https": https_proxy}
 
-    def take_image(self, snapshot_url="", flipH=False, flipV=False, rotate=False):
-        if snapshot_url == "":
+    def take_image(self, snapshot_url=None, flipH=False, flipV=False, rotate=False):
+        if snapshot_url == None:
             self._logger.info(
                 "Please configure the webcam snapshot settings "
                 "before enabling sending snapshots!"
