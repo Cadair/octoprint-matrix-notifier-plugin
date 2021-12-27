@@ -1,6 +1,7 @@
 import datetime
 import io
 import time
+import threading
 from pathlib import Path
 from textwrap import dedent
 
@@ -14,6 +15,13 @@ from get_image_size import get_image_size_from_bytesio
 
 from .matrix import SimpleMatrixClient
 
+
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        t = threading.Thread(target=fn, args=args, kwargs=kwargs)
+        t.daemon = True
+        t.start()
+    return wrapper
 
 class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                            octoprint.plugin.ProgressPlugin,
@@ -267,11 +275,39 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         raise ValueError("The room configuration option must start with ! or #")
 
+    def get_snapshot_confis(self):
+        # get MultiCam urls
+        multi_cam_urls = self._settings.global_get(["plugins", "multicam","multicam_profiles"])
+        if multi_cam_urls != None:
+            self._logger.debug("found multicam config %s", multi_cam_urls)
+            return multi_cam_urls
+
+        config = []
+        snapshot_url = self._settings.global_get(["webcam", "snapshot"])
+        if snapshot_url != None:
+            config.append({
+                'name': 'webcam',
+                'snapshot': snapshot_url,
+                'flipH': self._settings.global_get(["webcam", "flipH"]),
+                'flipV': self._settings.global_get(["webcam", "flipV"]),
+                'rotate90': self._settings.global_get(["webcam", "rotate90"])
+            })
+
+        self._logger.debug("cam config %s", config)
+        return config
+
     def send_snapshot(self):
         """
         Capture and then send a snapshot from the camera.
         """
-        data = self.take_image()
+        # take snapshots in parallel
+        for cam in self.get_snapshot_confis():
+            self.send_snapshot_t(cam)
+
+    @threaded
+    def send_snapshot_t(self, cam):
+        self._logger.debug("send_snapshot_t %s", cam)
+        data = self.take_image(cam['snapshot'], cam['flipH'], cam['flipV'], cam['rotate90'])
 
         mxc_url = self.client.upload_media(data, "image/jpg")["content_uri"]
 
@@ -279,21 +315,19 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         content = {
             "msgtype": "m.image",
-            "body": time.strftime("%Y_%m_%d-%H_%M_%S") + ".jpg",
+            "body": cam['name'] + "_" + time.strftime("%Y_%m_%d-%H_%M_%S") + ".jpg",
             "info": {"mimetype": "image/jpg", "w": img_w, "h": img_h},
             "url": mxc_url,
         }
 
-        return self.client.room_send(self.room_id, "m.room.message", content)
+        self.client.room_send(self.room_id, "m.room.message", content)
 
     def getProxies(self):
         http_proxy = self._settings.get(["http_proxy"])
         https_proxy = self._settings.get(["https_proxy"])
         return {"http": http_proxy, "https": https_proxy}
 
-    def take_image(self, snapshot_url=""):
-        if snapshot_url == "":
-            snapshot_url = self._settings.global_get(["webcam", "snapshot"])
+    def take_image(self, snapshot_url="", flipH=False, flipV=False, rotate=False):
         if snapshot_url == "":
             self._logger.info(
                 "Please configure the webcam snapshot settings "
@@ -310,9 +344,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             except Exception as e:
                 self._logger.exception("TimeOut Exception: " + str(e))
                 return None
-        flipH = self._settings.global_get(["webcam", "flipH"])
-        flipV = self._settings.global_get(["webcam", "flipV"])
-        rotate = self._settings.global_get(["webcam", "rotate90"])
+
         self._logger.debug(
             "Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate
         )
