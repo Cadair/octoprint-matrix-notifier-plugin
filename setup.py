@@ -36,7 +36,9 @@ plugin_license = "AGPLv3"
 plugin_requires = [
     "matrix-nio",
     "opsdroid-get-image-size",
-    "beautifulsoup4"
+    "beautifulsoup4",
+    "pillow",
+    "requests[socks]"
 ]
 
 ### --------------------------------------------------------------------------------------------------------------------
