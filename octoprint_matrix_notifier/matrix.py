@@ -3,6 +3,7 @@ A *really* barebones matrix client.
 """
 import json
 import logging
+from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -78,10 +79,11 @@ class SimpleMatrixClient:
         )
 
     def room_send_markdown_message(self, room_id, text):
+        html = markdown.markdown(text, extensions=['nl2br'])
         content = {
             "msgtype": "m.text",
-            "body": text,
+            "body": BeautifulSoup(html, 'html.parser').get_text(),
             "format": "org.matrix.custom.html",
-            "formatted_body": markdown.markdown(text, extensions=['nl2br'])
+            "formatted_body": html
         }
         self.room_send(room_id, "m.room.message", content)
