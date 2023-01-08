@@ -3,8 +3,10 @@ A *really* barebones matrix client.
 """
 import json
 import logging
+import requests
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
+from urllib.error import URLError
 from uuid import uuid4
 
 import markdown
@@ -41,9 +43,14 @@ class SimpleMatrixClient:
         req = Request(url, data=data, headers=headers, method=method)
         self.logger.info("%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), log_data, headers)
 
-        resp = urlopen(req)
+        try:
+            self.logger.debug(f'Attempting to open URL {req}')
+            with urlopen(req) as resp:
+                return json.loads(resp.read())
+        except URLError as e:
+            self.logger.warn(f'Caught URLError attempting to {method} to {path}: {e.code}, {e.read()}')
         # TODO: Detect matrix errors here
-        return json.loads(resp.read())
+        
 
     def room_resolve_alias(self, room_alias):
         method, path = Api.room_resolve_alias(room_alias)
@@ -68,14 +75,32 @@ class SimpleMatrixClient:
         method, path = Api.whoami(self.access_token)
         return self._send(method, path)
 
-    def upload_media(self, media_data, content_type):
-        return self._send(
-            "POST",
-            f"/_matrix/media/r0/upload?access_token={self.access_token}",
-            media_data,
-            content_type=content_type,
-            content_length=len(media_data),
-        )
+    def upload_media(self, media_data, filename, content_type):
+        # return self._send(
+        #     method="POST",
+        #     path=f"/_matrix/media/r0/upload?access_token={self.access_token}",
+        #     data=media_data,
+        #     content_type=content_type,
+        #     # content_length=len(media_data),
+        # )
+        rlog = logging.getLogger('urllib3')
+        rlog.setLevel(logging.DEBUG)
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        rlog.addHandler(ch)
+
+        url = urljoin(self.homeserver, f'/_matrix/media/r0/upload?filename={filename}&access_token={self.access_token}')
+        headers = {
+            'content-type': content_type,
+            'content-length': str(len(media_data))
+        }
+        self.logger.info(f'Attempting to POST to {url} with headers {headers}')
+        response = requests.post(url=url, data=media_data, headers=headers)
+        # response = requests.post(url=url, data=media_data)
+        if response.ok:
+            return response.json()
+        else:
+            self.logger.warning(f'Received error status from image upload: {response.status_code=} {response.content}')
 
     def room_send_markdown_message(self, room_id, text):
         content = {

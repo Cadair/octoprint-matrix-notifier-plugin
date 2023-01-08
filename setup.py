@@ -4,30 +4,30 @@
 ### Do not forget to adjust the following variables to your own plugin.
 
 # The plugin's identifier, has to be unique
-plugin_identifier = "matrix_notifier"
+plugin_identifier = "async_matrix_notifier"
 
 # The plugin's python package, should be "octoprint_<plugin identifier>", has to be unique
-plugin_package = "octoprint_matrix_notifier"
+plugin_package = "octoprint_async_matrix_notifier"
 
 # The plugin's human readable name. Can be overwritten within OctoPrint's internal data via __plugin_name__ in the
 # plugin module
-plugin_name = "Matrix Notifier"
+plugin_name = "Async Matrix Notifier"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "0.2.2"
+plugin_version = "0.0.1"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
-plugin_description = """Sends matrix notifications and snapshots of your print."""
+plugin_description = """Asynchronously sends matrix notifications and snapshots of your print."""
 
 # The plugin's author. Can be overwritten within OctoPrint's internal data via __plugin_author__ in the plugin module
-plugin_author = "Stuart Mumford"
+plugin_author = "Kevin M. Weiss"
 
 # The plugin's author's mail address.
-plugin_author_email = "stuart@cadair.com"
+plugin_author_email = "kevin@sloppylinux.com"
 
 # The plugin's homepage URL. Can be overwritten within OctoPrint's internal data via __plugin_url__ in the plugin module
-plugin_url = "https://github.com/Cadair/octoprint-matrix-notifier-plugin"
+plugin_url = "https://github.com/unomar/octoprint-matrix-notifier-plugin"
 
 # The plugin's license. Can be overwritten within OctoPrint's internal data via __plugin_license__ in the plugin module
 plugin_license = "AGPLv3"
@@ -35,7 +35,8 @@ plugin_license = "AGPLv3"
 # Any additional requirements besides OctoPrint should be listed here
 plugin_requires = [
     "matrix-nio",
-    "opsdroid-get-image-size"
+    "opsdroid-get-image-size",
+    "requests"
 ]
 
 ### --------------------------------------------------------------------------------------------------------------------
