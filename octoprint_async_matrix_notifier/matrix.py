@@ -100,7 +100,7 @@ class SimpleMatrixClient:
         if response.ok:
             return response.json()
         else:
-            self.logger.warning(f'Received error status from image upload: {response.status_code=} {response.content}')
+            self.logger.warning(f'Received error status from image upload: {response.status_code} {response.content}')
 
     def room_send_markdown_message(self, room_id, text):
         content = {

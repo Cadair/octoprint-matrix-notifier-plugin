@@ -344,7 +344,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             self._logger.info('Preparing to send snapshot')
             self.send_snapshot(file_path=payload.get('file'))
         else:
-            self._logger.warning(f'Received {event=} which is NOT {Events.CAPTURE_DONE} of type {type(event)} with {payload=}')
+            self._logger.warning(f'Received {event} which is NOT {Events.CAPTURE_DONE} of type {type(event)} with {payload}')
 
     def send_snapshot(self, file_path):
         """
