@@ -16,7 +16,7 @@ from octoprint.events import Events, eventManager
 from .matrix import SimpleMatrixClient
 
 
-class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
+class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                            octoprint.plugin.ProgressPlugin,
                            octoprint.plugin.SettingsPlugin,
                            octoprint.plugin.TemplatePlugin,
@@ -131,21 +131,21 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         self._logger.info("Logged into matrix as user: %s", user_id)
 
     def get_template_configs(self):
-        return [dict(type="settings", name="Matrix Notifier", custom_bindings=False)]
+        return [dict(type="settings", name="Async Matrix Notifier", custom_bindings=False)]
 
     def get_update_information(self):
         # Define the configuration for your plugin to use with the Software Update
         # Plugin here. See https://docs.octoprint.org/en/master/bundledplugins/softwareupdate.html
         # for details.
         return {
-            "matrix_notifier": {
-                "displayName": "Matrix Notifier Plugin",
+            "async_matrix_notifier": {
+                "displayName": "Async Matrix Notifier Plugin",
                 "displayVersion": self._plugin_version,
 
                 # version check: github repository
                 "type": "github_release",
                 "user": "unomar",
-                "repo": "octoprint-matrix-notifier-plugin",
+                "repo": "octoprint-async_matrix-notifier-plugin",
                 "current": self._plugin_version,
 
                 # update method: pip

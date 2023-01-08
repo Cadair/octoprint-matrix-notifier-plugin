@@ -1,18 +1,18 @@
 ---
 layout: plugin
 
-id: matrix_notifier
-title: Matrix Notifier
-description: Sends matrix notifications and snapshots of your print.
+id: async_matrix_notifier
+title: Async Matrix Notifier
+description: Asynchronously sends matrix notifications and snapshots of your print.
 authors:
-- Stuart Mumford
+- Kevin M. Weiss
 license: AGPLv3
 
-date: 2021-07-18
+date: 2023-01-08
 
-homepage: https://github.com/Cadair/octoprint-matrix-notifier-plugin
-source: https://github.com/Cadair/octoprint-matrix-notifier-plugin
-archive: https://github.com/Cadair/octoprint-matrix-notifier-plugin/archive/main.zip
+homepage: https://github.com/unomar/octoprint-matrix-notifier-plugin
+source: https://github.com/unomar/octoprint-matrix-notifier-plugin
+archive: https://github.com/unomar/octoprint-matrix-notifier-plugin/archive/main.zip
 
 tags:
 - notifications
@@ -51,7 +51,7 @@ In addition to this any other event should be configurable directly in the `conf
 Take the event name from https://docs.octoprint.org/en/master/events/ and add a section under the `plugins:` section which looks like this:
 
 ```
-  matrix_notifier:
+  async_matrix_notifier:
     events:
       Connected:
         enabled: true

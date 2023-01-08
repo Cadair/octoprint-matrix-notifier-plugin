@@ -1,11 +1,11 @@
 /*
- * View model for OctoPrint-Matrix_Notifier
+ * View model for OctoPrint-Async_Matrix_Notifier
  *
- * Author: Stuart Mumford
+ * Author: Kevin M. Weiss
  * License: AGPLv3
  */
 $(function() {
-    function Matrix_notifierViewModel(parameters) {
+    function AsyncMatrix_notifierViewModel(parameters) {
         var self = this;
 
         // assign the injected parameters, e.g.:
@@ -20,10 +20,10 @@ $(function() {
      * and a full list of the available options.
      */
     OCTOPRINT_VIEWMODELS.push({
-        construct: Matrix_notifierViewModel,
+        construct: AsyncMatrix_notifierViewModel,
         // ViewModels your plugin depends on, e.g. loginStateViewModel, settingsViewModel, ...
         dependencies: [ /* "loginStateViewModel", "settingsViewModel" */ ],
-        // Elements to bind to, e.g. #settings_plugin_matrix_notifier, #tab_plugin_matrix_notifier, ...
+        // Elements to bind to, e.g. #settings_plugin_async_matrix_notifier, #tab_plugin_async_matrix_notifier, ...
         elements: [ /* ... */ ]
     });
 });
