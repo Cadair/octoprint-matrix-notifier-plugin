@@ -3,6 +3,7 @@ A *really* barebones matrix client.
 """
 import json
 import logging
+from typing import Any, Dict
 import requests
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
@@ -23,7 +24,7 @@ class SimpleMatrixClient:
         self.access_token = access_token
         self.logger = logger or logging.getLogger(__name__)
 
-    def _send(self, method, path, data=None, content_type=None, content_length=None):
+    def _send(self, method, path, data=None, content_type=None, content_length=None) -> Dict[str, Any]:
         url = urljoin(self.homeserver, path)
 
         headers = (
@@ -48,16 +49,15 @@ class SimpleMatrixClient:
             with urlopen(req) as resp:
                 return json.loads(resp.read())
         except URLError as e:
-            self.logger.warn(f'Caught URLError attempting to {method} to {path}: {e.code}, {e.read()}')
-        # TODO: Detect matrix errors here
+            self.logger.warning(f'Caught URLError attempting to {method} to {path}: {e.code}, {e.read()}')
         
 
-    def room_resolve_alias(self, room_alias):
+    def room_resolve_alias(self, room_alias) -> Dict[str, Any]:
         method, path = Api.room_resolve_alias(room_alias)
 
         return self._send(method, path)
 
-    def room_send(self, room_id, message_type, content):
+    def room_send(self, room_id, message_type, content) -> Dict[str, Any]:
         """
         Send a message to a room.
         """
@@ -68,21 +68,16 @@ class SimpleMatrixClient:
 
         return self._send(method, path, data)
 
-    def whoami(self):
+    def whoami(self) -> Dict[str, Any]:
         if self.access_token is None:
             raise ValueError("No access_token is set.")
 
         method, path = Api.whoami(self.access_token)
         return self._send(method, path)
 
-    def upload_media(self, media_data, filename, content_type):
-        # return self._send(
-        #     method="POST",
-        #     path=f"/_matrix/media/r0/upload?access_token={self.access_token}",
-        #     data=media_data,
-        #     content_type=content_type,
-        #     # content_length=len(media_data),
-        # )
+    def upload_media(self, media_data, filename, content_type) -> Dict[str, Any]:
+        """ Upload some binary media (snapshots) and return the response JSON """
+
         rlog = logging.getLogger('urllib3')
         rlog.setLevel(logging.DEBUG)
         ch = logging.StreamHandler()
@@ -102,7 +97,9 @@ class SimpleMatrixClient:
         else:
             self.logger.warning(f'Received error status from image upload: {response.status_code} {response.content}')
 
-    def room_send_markdown_message(self, room_id, text):
+    def room_send_markdown_message(self, room_id, text) -> None:
+        """ Send a markdown message to the specified room """
+
         content = {
             "msgtype": "m.text",
             "body": text,
