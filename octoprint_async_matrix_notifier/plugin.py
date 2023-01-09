@@ -119,7 +119,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
     def get_template_configs(self):
         return [dict(type="settings", name="Async Matrix Notifier", custom_bindings=False)]
 
-    def get_update_information(self) -> dict[str, dict[str, Any]]:
+    def get_update_information(self):
         # Define the configuration for your plugin to use with the Software Update
         # Plugin here. See https://docs.octoprint.org/en/master/bundledplugins/softwareupdate.html
         # for details.
@@ -237,7 +237,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         eventManager().subscribe(Events.CAPTURE_FAILED, self.snapshot_event)
         self.capture_snapshot()
     
-    def send_message(self) -> None:
+    def send_message(self):
         """ Send a message """
         self.client.room_send_markdown_message(self.room_id, self.queued_message)
 
@@ -322,7 +322,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             self._logger.warning(f'Received {event} which is NOT {Events.CAPTURE_DONE} of type {type(event)} with {payload}')
         self.queued_message = None
 
-    def upload_snapshot(self, file_path: str) -> str:
+    def upload_snapshot(self, file_path: str):
         """
         Upload a snapshot and return a mxc_url when complete.
         """
