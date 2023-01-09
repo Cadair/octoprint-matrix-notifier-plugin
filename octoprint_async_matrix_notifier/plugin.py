@@ -1,11 +1,9 @@
-import asyncio
 import datetime
-import io
 import os
 import time
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Coroutine
+from typing import Any
 
 import octoprint.plugin
 import octoprint.util
@@ -26,6 +24,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         super().__init__(*args, **kwargs)
         self._room = None
         self._room_alias = None
+        self.queued_message: str = None
 
     def get_settings_defaults(self):
         return {
@@ -76,7 +75,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                     **User**: {user}
                     **Elapsed Time**: {elapsed_time}
                     **Remaining Time**: {remaining_time}
-                    **Total Estimated Time**:{total_estimated_time}
+                    **Total Estimated Time**: {total_estimated_time}
                     {temperature}
                     """),
                     "enabled": True,
@@ -89,25 +88,9 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                     **User**: {user}
                     **Elapsed Time**: {elapsed_time}
                     **Remaining Time**: {remaining_time}
-                    **Total Estimated Time**:{total_estimated_time}
+                    **Total Estimated Time**: {total_estimated_time}
+                    **Estimated Completion Time**: {completion}
                     {temperature}
-                    **Estimated Completion Time**:{completion}
-                    """),
-                    "enabled": True,
-                    "interval": 10,
-                },
-                "progress_snapshot": {
-                    "template": dedent("""\
-                    ## Print Progress {pct_completed}% 🏃
-
-                    **File**: {filename}
-                    **User**: {user}
-                    **Elapsed Time**: {elapsed_time}
-                    **Remaining Time**: {remaining_time}
-                    **Total Estimated Time**:{total_estimated_time}
-                    {temperature}
-                    **Estimated Completion Time**:{completion}
-                    <img src="{mxc_url}">
                     """),
                     "enabled": True,
                     "interval": 10,
@@ -127,13 +110,16 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                                   logger=self._logger)
 
     def on_after_startup(self):
-        user_id = self.client.whoami()["user_id"]
+        user_id = self.client.whoami().get("user_id", None)
         self._logger.info("Logged into matrix as user: %s", user_id)
+        monitored_events = self._settings.get(['events'])
+        if monitored_events:
+            self._logger.info(f'The following additional events are monitored: {monitored_events}')
 
     def get_template_configs(self):
         return [dict(type="settings", name="Async Matrix Notifier", custom_bindings=False)]
 
-    def get_update_information(self):
+    def get_update_information(self) -> dict[str, dict[str, Any]]:
         # Define the configuration for your plugin to use with the Software Update
         # Plugin here. See https://docs.octoprint.org/en/master/bundledplugins/softwareupdate.html
         # for details.
@@ -196,34 +182,34 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         keys = {}
         keys["temperature"] = self.temperature_status_string
         printer_data = self._printer.get_current_data()
-        keys["remaining_time"] = self._seconds_delta_to_string(printer_data["progress"]["printTimeLeft"])
+        remaining_time_seconds = printer_data["progress"]["printTimeLeft"]
+        keys["remaining_time"] = self._seconds_delta_to_string(remaining_time_seconds)
         keys["total_estimated_time"] = self._seconds_delta_to_string(printer_data["job"]["estimatedPrintTime"])
         keys["elapsed_time"] = self._seconds_delta_to_string(printer_data["progress"]["printTime"])
-        keys["completion"] = self._seconds_delta_to_string(printer_data["progress"]["completion"])
+        if remaining_time_seconds and remaining_time_seconds > 0:
+            keys["completion"] = (datetime.datetime.now() + datetime.timedelta(seconds=remaining_time_seconds)).ctime()
         keys["user"] = printer_data["job"]["user"]
         keys["filename"] = printer_data["job"]["file"]["name"]
-        self._logger.info(f'Available data: {str(printer_data)}')
+        self._logger.debug(f'Available data: {str(printer_data)}')
 
         return keys
 
     def on_event(self, event, payload):
         # see https://docs.octoprint.org/en/master/events/
 
-        self._logger.info(f'Processing event {event}')
+        self._logger.info(f'Received event {event}')
 
         # If we don't support this event, exit
         if not self._settings.get(["events", event]):
             return
-
+        
+        self.snapshot_enabled = self._settings.get(["send_snapshot"])
         payload = payload or dict()
 
         self._logger.info("Got event %s with payload %s", event, payload)
 
         if self._settings.get(["events", event, "enabled"]) or True:
-            if 'progress' == event and self._settings.get(["send_snapshot"]):
-                template = self._settings.get(["events", "progress_snapshot", "template"])
-            else:
-                template = self._settings.get(["events", event, "template"])
+            template = self._settings.get(["events", event, "template"])
 
         keys = self.generate_message_keys()
         keys = {
@@ -233,36 +219,27 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         }
         if "time" in payload:
             keys["elapsed_time"] = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=payload["time"]))
+        
+        self.queued_message = template.format(**keys)
+        
+        if self.snapshot_enabled:
+            # Generate the snapshot first.  The message will be sent upon receipt of Events.CAPTURE_DONE
+            self.generate_snapshot()
+        else:
+            # No snapshot so we can send the message immediately
+            self.send_message()
+    
+    def generate_snapshot(self):
+        """ Request a snapshot and provide callbacks """
 
-        message = template.format(**keys)
-        asyncio.run(self.process_event(message=message))
-        
+        self._logger.info('Generating snapshot...')
+        eventManager().subscribe(Events.CAPTURE_DONE, self.snapshot_event)
+        eventManager().subscribe(Events.CAPTURE_FAILED, self.snapshot_event)
+        self.capture_snapshot()
     
-    async def process_event(self, message):
-        """ Process events asynchronously """
-        
-        start_time = datetime.datetime.now()
-        tasks: list[Coroutine[Any, Any, None]] = []
-        tasks.append(self.send_message_async(message))
-        if self._settings.get(["send_snapshot"]):
-            self._logger.info('Generating snapshot...')
-            eventManager().subscribe(Events.CAPTURE_DONE, self.snapshot_event)
-            eventManager().subscribe(Events.CAPTURE_FAILED, self.snapshot_event)
-            self.capture_snapshot()
-            # tasks.append(self.send_snapshot_async())
-        
-        await asyncio.gather(*tasks)
-
-        stop_time = datetime.datetime.now()
-        self._logger.info(f'Processed event in {stop_time-start_time}')
-    
-    async def send_message_async(self, message) -> None:
-        """ Async function to send a text message to Matrix """
-        self.client.room_send_markdown_message(self.room_id, message)
-    
-    async def send_snapshot_async(self):
-        """ Async function to send a snapshot to Matrix """
-        self.send_snapshot()
+    def send_message(self) -> None:
+        """ Send a message """
+        self.client.room_send_markdown_message(self.room_id, self.queued_message)
 
 
     def on_print_progress(self, storage, path, progress):
@@ -282,7 +259,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         self.client.room_send_markdown_message(self.room_id, message)
         if self._settings.get(["send_snapshot"]):
-            self.send_snapshot()
+            self.upload_snapshot()
 
     def capture_snapshot(self):
         if not self._settings.global_get(["webcam", "snapshot"]):
@@ -298,13 +275,6 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         tl._in_timelapse = True
         tl._file_prefix = time.strftime("%Y%m%d%H%M%S")
         file_path = Path(tl.capture_image())
-
-        # Ensure the file has actually finished being written before we return
-        # There appears to be a threading race condition or something going on here
-        for i in range(10):
-            if file_path.exists():
-                break
-            time.sleep(0.1)
 
         return file_path
 
@@ -334,7 +304,6 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             return self._room
 
         raise ValueError("The room configuration option must start with ! or #")
-    
     def snapshot_event(self, event, payload):
         """ Called when an image snapshot is done capturing """
         
@@ -342,18 +311,25 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         eventManager().unsubscribe(Events.CAPTURE_FAILED, self.snapshot_event)
         if Events.CAPTURE_DONE == event and payload.get('file', None) is not None:
             self._logger.info('Preparing to send snapshot')
-            self.send_snapshot(file_path=payload.get('file'))
+            mxc_url = self.upload_snapshot(file_path=payload.get('file'))
+            if mxc_url:
+                self.queued_message = self.queued_message + f'\n<img src="{mxc_url}">\n'
+                self.send_message()
+            else:
+                self._logger.warning(f'Image upload failed.  Sending message without snapshot.')
+                self.send_message()
         else:
             self._logger.warning(f'Received {event} which is NOT {Events.CAPTURE_DONE} of type {type(event)} with {payload}')
+        self.queued_message = None
 
-    def send_snapshot(self, file_path):
+    def upload_snapshot(self, file_path: str) -> str:
         """
-        Capture and then send a snapshot from the camera.
+        Upload a snapshot and return a mxc_url when complete.
         """
-        
+
+        mxc_url: str = None
         self._logger.info(f'Attempting to upload {file_path}')
         file_name = os.path.basename(file_path)
-        # file_path = self.capture_snapshot()
 
         with open(file_path, "rb") as fobj:
             data = fobj.read()
@@ -365,16 +341,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             mxc_url = upload_response.get("content_uri")
 
             self._logger.info(f'Got mxc_url of {mxc_url}')
+            return mxc_url
 
-            img_w, img_h = get_image_size_from_bytesio(io.BytesIO(data), len(data))
-
-            content = {
-                "msgtype": "m.image",
-                "body": file_name,
-                "info": {"mimetype": "image/jpg", "w": img_w, "h": img_h},
-                "url": mxc_url,
-            }
-
-            return self.client.room_send(self.room_id, "m.room.message", content)
         else:
             self._logger.warning(f'Unable to upload snapshot for {file_name}')
