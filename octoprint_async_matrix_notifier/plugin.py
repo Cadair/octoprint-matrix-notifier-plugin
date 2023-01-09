@@ -237,6 +237,29 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             # No snapshot so we can send the message immediately
             self.send_message()
     
+    def on_print_progress(self, storage, path, progress):
+        """ Print Progress comes as a separate event.  Handle it here. """
+
+        interval = int(self._settings.get(["events", "progress", "interval"])) or 10
+
+        if not progress or not(progress / interval == progress // interval) or progress == 100:
+            return
+
+        if self._settings.get(["events", "progress", "enabled"]):
+            template = self._settings.get(["events", "progress", "template"])
+
+        keys = self.generate_message_keys()
+        keys["pct_completed"] = progress
+        self.queued_message = template.format(**keys)
+
+        if self.snapshot_enabled:
+            # Generate the snapshot first.  The message will be sent upon receipt of Events.CAPTURE_DONE
+            self.generate_snapshot()
+        else:
+            # No snapshot so we can send the message immediately
+            self.send_message()
+
+    
     def generate_snapshot(self) -> None:
         """ Request a snapshot and provide callbacks """
 
