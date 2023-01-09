@@ -1,4 +1,4 @@
 include README.md
-recursive-include octoprint_matrix_notifier/templates *
-recursive-include octoprint_matrix_notifier/translations *
-recursive-include octoprint_matrix_notifier/static *
+recursive-include octoprint_async_matrix_notifier/templates *
+recursive-include octoprint_async_matrix_notifier/translations *
+recursive-include octoprint_async_matrix_notifier/static *
