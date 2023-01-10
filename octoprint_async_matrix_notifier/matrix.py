@@ -1,17 +1,16 @@
 """
 A *really* barebones matrix client.
 """
-import json
 import logging
 from typing import Any, Dict
-import requests
-from urllib.parse import urljoin
-from urllib.request import Request, urlopen
-from urllib.error import URLError
 from uuid import uuid4
 
 import markdown
+import requests
 from nio.api import Api
+from requests.compat import urljoin
+
+from .errors import NetworkError, UploadError
 
 
 class SimpleMatrixClient:
@@ -24,86 +23,86 @@ class SimpleMatrixClient:
         self.access_token = access_token
         self.logger = logger or logging.getLogger(__name__)
 
-    def _send(self, method, path, data=None, content_type=None, content_length=None) -> Dict[str, Any]:
-        url = urljoin(self.homeserver, path)
+    def _send(self, method: str, path: str, data: str = None, content_type: str = None, content_length: str = None) -> Dict[str, Any]:
+        """ Send data via http(s) """
 
-        headers = (
-            {"Content-Type": content_type}
-            if content_type
-            else {"Content-Type": "application/json"}
-        )
+        url = urljoin(base=self.homeserver, url=path)
+
+        # Generate a log friendly URL without sensitive info
+        log_friendly_url = url.replace(self.access_token, '<redacted>')
+
+        # Default to application/json unless specified
+        content_type = content_type if content_type else 'application/json'
+        headers = {
+            'Content-Type': content_type,
+            'Accept': 'application/json'
+        }
 
         if content_length is not None:
-            headers["Content-Length"] = str(content_length)
+            headers['Content-Length'] = str(content_length)
 
-        log_data = None if data is None else "binary_data"
+        log_data = None if data is None else 'binary_data'
         if isinstance(data, str):
-            data = data.encode("UTF-8")
+            data = data.encode('UTF-8')
             log_data = data
 
-        req = Request(url, data=data, headers=headers, method=method)
-        self.logger.info("%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), log_data, headers)
+        self.logger.info(
+            f'{method} {log_friendly_url} data={log_data} headers={headers}')
+        response = requests.request(method=method, url=url, data=data, headers=headers)
 
-        try:
-            self.logger.debug(f'Attempting to open URL {req}')
-            with urlopen(req) as resp:
-                return json.loads(resp.read())
-        except URLError as e:
-            self.logger.warning(f'Caught URLError attempting to {method} to {path}: {e.code}, {e.read()}')
-        
+        if not response.ok:
+            raise NetworkError(
+                message=f'Received error response {response.status_code} from {log_friendly_url}: {response.text}')
+        return response.json()
 
-    def room_resolve_alias(self, room_alias) -> Dict[str, Any]:
-        method, path = Api.room_resolve_alias(room_alias)
+    def room_resolve_alias(self, room_alias: str) -> Dict[str, Any]:
+        """ Resolve a Matrix room alias """
 
-        return self._send(method, path)
+        method, path = Api.room_resolve_alias(room_alias=room_alias)
 
-    def room_send(self, room_id, message_type, content) -> Dict[str, Any]:
+        return self._send(method=method, path=path)
+
+    def room_send(self, room_id: str, message_type: str, content: Dict[str, Any]) -> Dict[str, Any]:
         """
         Send a message to a room.
         """
         uuid = uuid4()
-        method, path, data = Api.room_send(
-            self.access_token, room_id, message_type, content, uuid
-        )
+        method, path, data = Api.room_send(access_token=self.access_token, room_id=room_id, event_type=message_type, body=content, tx_id=uuid)
 
-        return self._send(method, path, data)
+        return self._send(method=method, path=path, data=data)
 
     def whoami(self) -> Dict[str, Any]:
         if self.access_token is None:
-            raise ValueError("No access_token is set.")
+            raise ValueError('No access_token is set.')
 
-        method, path = Api.whoami(self.access_token)
-        return self._send(method, path)
+        method, path = Api.whoami(access_token=self.access_token)
+        return self._send(method=method, path=path)
 
-    def upload_media(self, media_data, filename, content_type) -> Dict[str, Any]:
+    def upload_media(self, media_data: bytes, filename: str, content_type: str) -> Dict[str, Any]:
         """ Upload some binary media (snapshots) and return the response JSON """
 
-        rlog = logging.getLogger('urllib3')
-        rlog.setLevel(logging.DEBUG)
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        rlog.addHandler(ch)
-
-        url = urljoin(self.homeserver, f'/_matrix/media/r0/upload?filename={filename}&access_token={self.access_token}')
+        url = urljoin(
+            self.homeserver, f'/_matrix/media/r0/upload?filename={filename}&access_token={self.access_token}')
         headers = {
             'content-type': content_type,
             'content-length': str(len(media_data))
         }
+
         self.logger.info(f'Attempting to POST to {url} with headers {headers}')
         response = requests.post(url=url, data=media_data, headers=headers)
-        # response = requests.post(url=url, data=media_data)
-        if response.ok:
-            return response.json()
-        else:
-            self.logger.warning(f'Received error status from image upload: {response.status_code} {response.content}')
 
-    def room_send_markdown_message(self, room_id, text) -> None:
+        if not response.ok:
+            raise UploadError(filename=filename, message='Unable to upload')
+
+        return response.json()
+
+    def room_send_markdown_message(self, room_id: str, text: str) -> None:
         """ Send a markdown message to the specified room """
 
         content = {
-            "msgtype": "m.text",
-            "body": text,
-            "format": "org.matrix.custom.html",
-            "formatted_body": markdown.markdown(text, extensions=['nl2br'])
+            'msgtype': 'm.text',
+            'body': text,
+            'format': 'org.matrix.custom.html',
+            'formatted_body': markdown.markdown(text=text, extensions=['nl2br'])
         }
-        self.room_send(room_id, "m.room.message", content)
+        self.room_send(room_id=room_id, message_type='m.room.message', content=content)

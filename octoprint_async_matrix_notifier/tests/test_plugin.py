@@ -1,6 +1,6 @@
 
-from unittest.mock import MagicMock
 from octoprint_async_matrix_notifier.plugin import AsyncMatrixNotifierPlugin
+
 
 class TestAsyncMatrixNotifierPlugin():
     """ Class to test the AsyncMatrixNotifierPlugin """
@@ -27,11 +27,10 @@ class TestAsyncMatrixNotifierPlugin():
         assert update_info is not None
         assert update_info == {
             'async_matrix_notifier': {'current': '0.0.0',
-            'displayName': 'Async Matrix Notifier Plugin',
-            'displayVersion': '0.0.0',
-            'pip': 'https://github.com/unomar/octoprint-matrix-notifier-plugin/archive/{target_version}.zip',
-            'repo': 'octoprint-async_matrix-notifier-plugin',
-            'type': 'github_release',
-            'user': 'unomar'},
+                                      'displayName': 'Async Matrix Notifier Plugin',
+                                      'displayVersion': '0.0.0',
+                                      'pip': 'https://github.com/unomar/octoprint-matrix-notifier-plugin/archive/{target_version}.zip',
+                                      'repo': 'octoprint-async_matrix-notifier-plugin',
+                                      'type': 'github_release',
+                                      'user': 'unomar'},
         }
-

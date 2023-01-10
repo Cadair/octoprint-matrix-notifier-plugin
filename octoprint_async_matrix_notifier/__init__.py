@@ -1,8 +1,7 @@
-import octoprint.plugin
-
 from .plugin import AsyncMatrixNotifierPlugin
 
-__plugin_pythoncompat__ = ">=3,<4" # only python 3
+__plugin_pythoncompat__ = ">=3,<4"  # only python 3
+
 
 def __plugin_load__():
     global __plugin_implementation__
