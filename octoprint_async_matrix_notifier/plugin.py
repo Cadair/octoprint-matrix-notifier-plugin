@@ -286,7 +286,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         except NetworkError as e:
             self._logger.warning(f'Unable to send message: {self.queued_message} due to {e.message}')
 
-    def _capture_snapshot(self) -> None:
+    def _capture_snapshot(self, event: str, payload: Dict[str, Any]) -> None:
         """ Private function to request a snapshot """
 
         if not self._settings.global_get(["webcam", "snapshot"]):
