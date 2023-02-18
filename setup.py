@@ -1,9 +1,10 @@
 # coding=utf-8
 
 ########################################################################################################################
-### Do not forget to adjust the following variables to your own plugin.
+# Do not forget to adjust the following variables to your own plugin.
 
 # The plugin's identifier, has to be unique
+from setuptools import setup
 plugin_identifier = "async_matrix_notifier"
 
 # The plugin's python package, should be "octoprint_<plugin identifier>", has to be unique
@@ -14,7 +15,7 @@ plugin_package = "octoprint_async_matrix_notifier"
 plugin_name = "Async Matrix Notifier"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "0.0.6"
+plugin_version = "0.0.7"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -39,9 +40,9 @@ plugin_requires = [
     "requests"
 ]
 
-### --------------------------------------------------------------------------------------------------------------------
-### More advanced options that you usually shouldn't have to touch follow after this point
-### --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+# More advanced options that you usually shouldn't have to touch follow after this point
+# --------------------------------------------------------------------------------------------------------------------
 
 # Additional package data to install for this plugin. The subfolders "templates", "static" and "translations" will
 # already be installed automatically if they exist. Note that if you add something here you'll also need to update
@@ -67,7 +68,6 @@ additional_setup_parameters = {"python_requires": ">=3, <4", "extras_require": {
 
 ########################################################################################################################
 
-from setuptools import setup
 
 try:
     import octoprint_setuptools

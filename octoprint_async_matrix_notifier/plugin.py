@@ -1,29 +1,38 @@
-import datetime
 import os
-import time
+from datetime import datetime, timedelta
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-import octoprint.plugin
 import octoprint.util
+import requests
 from octoprint.events import Events, eventManager
-from octoprint.timelapse import Timelapse
+from octoprint.plugin import (EventHandlerPlugin, ProgressPlugin,
+                              SettingsPlugin, StartupPlugin, TemplatePlugin)
+from octoprint.settings import settings
 
 from .errors import NetworkError
 from .matrix import SimpleMatrixClient
 
 
-class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
-                                octoprint.plugin.ProgressPlugin,
-                                octoprint.plugin.SettingsPlugin,
-                                octoprint.plugin.TemplatePlugin,
-                                octoprint.plugin.StartupPlugin):
+class AsyncMatrixNotifierEvents(Events):
+    CAPTURE_IMAGE = 'AsyncCaptureImage'
+    CAPTURE_DONE = 'AsyncCaptureDone'
+    CAPTURE_ERROR = 'AsyncCaptureError'
+
+
+class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
+                                ProgressPlugin,
+                                SettingsPlugin,
+                                TemplatePlugin,
+                                StartupPlugin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._room: str = None
-        self._room_alias: str = None
-        self.queued_message: str = None
+        self._room: Optional[str] = None
+        self._room_alias: Optional[str] = None
+        self.queued_message: Optional[str] = None
+        self._capture_dir = settings().getBaseFolder("timelapse_tmp")
+        self._snapshot_url = settings().get(["webcam", "snapshot"])
 
     def get_settings_defaults(self) -> Dict[str, Any]:
         return {
@@ -119,6 +128,11 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             self._logger.info(
                 f'The following additional events are monitored: {monitored_events}')
 
+        # Subscribe to the potential responses
+        eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_IMAGE, self._capture_snapshot)
+        eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_DONE, self._snapshot_event)
+        eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_ERROR, self._snapshot_event)
+
     def get_template_configs(self) -> List[Dict[str, Any]]:
         """ Retrieve the configurable templates for this plugin """
         return [dict(type="settings", name="Async Matrix Notifier", custom_bindings=False)]
@@ -144,7 +158,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         }
 
     @property
-    def temperature_status_string(self) -> str:
+    def temperature_status_string(self) -> Optional[str]:
         """
         A string representing the current temperatures of all nozzles and the bed.
         """
@@ -178,12 +192,12 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         return f"Bed: {printer_temps['bed']['actual']}°C / {printer_temps['bed']['target']}°C " + tool_string
 
     @staticmethod
-    def _seconds_delta_to_string(seconds: float) -> str:
+    def _seconds_delta_to_string(seconds: float) -> Optional[str]:
         """ Convert delta seconds into a formatted string """
 
         if seconds is None:
             return
-        delta = datetime.timedelta(seconds=seconds)
+        delta = timedelta(seconds=seconds)
         return octoprint.util.get_formatted_timedelta(d=delta)
 
     def generate_message_keys(self) -> Dict[str, Any]:
@@ -197,7 +211,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         keys["total_estimated_time"] = self._seconds_delta_to_string(seconds=printer_data["job"]["estimatedPrintTime"])
         keys["elapsed_time"] = self._seconds_delta_to_string(seconds=printer_data["progress"]["printTime"])
         if remaining_time_seconds and remaining_time_seconds > 0:
-            keys["completion"] = (datetime.datetime.now() + datetime.timedelta(seconds=remaining_time_seconds)).ctime()
+            keys["completion"] = (datetime.now() + timedelta(seconds=remaining_time_seconds)).ctime()
         keys["user"] = printer_data["job"]["user"]
         keys["filename"] = printer_data["job"]["file"]["name"]
         self._logger.debug(f'Available data: {str(printer_data)}')
@@ -229,7 +243,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             **keys
         }
         if "time" in payload:
-            keys["elapsed_time"] = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=payload["time"]))
+            keys["elapsed_time"] = octoprint.util.get_formatted_timedelta(timedelta(seconds=payload["time"]))
 
         self.queued_message = template.format(**keys)
 
@@ -257,19 +271,13 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         self.queued_message = template.format(**keys)
 
         if self.snapshot_enabled:
-            # Generate the snapshot first.  The message will be sent upon receipt of Events.CAPTURE_DONE
-            self.generate_snapshot()
+            # Generate the snapshot first.  The message will be sent upon receipt of AsyncMatrixNotifierEvents.CAPTURE_DONE
+            self._logger.info('Generating snapshot...')
+            # Fire off an event to asynchronously capture the image
+            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_IMAGE)
         else:
             # No snapshot so we can send the message immediately
             self.send_message()
-
-    def generate_snapshot(self) -> None:
-        """ Request a snapshot and provide callbacks """
-
-        self._logger.info('Generating snapshot...')
-        eventManager().subscribe(Events.CAPTURE_DONE, self.snapshot_event)
-        eventManager().subscribe(Events.CAPTURE_FAILED, self.snapshot_event)
-        self.capture_snapshot()
 
     def send_message(self) -> None:
         """ Send a message """
@@ -278,8 +286,8 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         except NetworkError as e:
             self._logger.warning(f'Unable to send message: {self.queued_message} due to {e.message}')
 
-    def capture_snapshot(self) -> None:
-        """ Request a snapshot """
+    def _capture_snapshot(self) -> None:
+        """ Private function to request a snapshot """
 
         if not self._settings.global_get(["webcam", "snapshot"]):
             self._logger.info(
@@ -287,13 +295,42 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                 "before enabling sending snapshots!"
             )
 
-        tl = Timelapse()
-        tl._image_number = 0
-        tl._capture_errors = 0
-        tl._capture_success = 0
-        tl._in_timelapse = True
-        tl._file_prefix = time.strftime(format="%Y%m%d%H%M%S")
-        tl.capture_image()
+        filename = datetime.now().strftime("%Y&m%dT%H:%M:%S") + '.jpg'
+        filepath = os.path.join(
+            self._capture_dir,
+            filename
+        )
+
+        error: Optional[str] = None
+        try:
+            self._logger.debug(f"Going to capture {filepath} from {self._snapshot_url}")
+            r = requests.get(
+                self._snapshot_url,
+                stream=True,
+                timeout=self._snapshot_timeout,
+                verify=self._snapshot_validate_ssl,
+            )
+            r.raise_for_status()
+
+            with open(filepath, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+                        f.flush()
+
+            self._logger.debug(f"Image {filename} captured from {self._snapshot_url}")
+        except Exception:
+            error_msg = f'Could not capture image {filename} from {self._snapshot_url}'
+            self._logger.exception(error_msg, exc_info=True)
+            error = error_msg
+
+        if error:
+            eventManager().fire(
+                AsyncMatrixNotifierEvents.CAPTURE_ERROR,
+                {"file": filename, "error": str(error), "url": self._snapshot_url},
+            )
+        else:
+            eventManager().fire(Events.CAPTURE_DONE, {"file": filename})
 
     @property
     def room_id(self) -> str:
@@ -323,12 +360,10 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         raise ValueError(
             "The room configuration option must start with ! or #")
 
-    def snapshot_event(self, event: str, payload: Dict[str, Any]) -> None:
+    def _snapshot_event(self, event: str, payload: Dict[str, Any]) -> None:
         """ Called when an image snapshot is done capturing """
 
-        eventManager().unsubscribe(Events.CAPTURE_DONE, self.snapshot_event)
-        eventManager().unsubscribe(Events.CAPTURE_FAILED, self.snapshot_event)
-        if Events.CAPTURE_DONE == event and payload.get('file', None) is not None:
+        if AsyncMatrixNotifierEvents.CAPTURE_DONE == event and payload.get('file', None) is not None:
             self._logger.info('Preparing to send snapshot')
             mxc_url = self.upload_snapshot(file_path=payload.get('file'))
             if mxc_url:
@@ -341,7 +376,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                 self.send_message()
         else:
             self._logger.warning(
-                f'Received {event} which is NOT {Events.CAPTURE_DONE} of type {type(event)} with {payload}')
+                f'Received {event} which is NOT {AsyncMatrixNotifierEvents.CAPTURE_DONE} of type {type(event)} with {payload}')
         self.queued_message = None
 
     def upload_snapshot(self, file_path: str) -> str:
@@ -349,7 +384,7 @@ class AsyncMatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         Upload a snapshot and return a mxc_url when complete.
         """
 
-        mxc_url: str = None
+        mxc_url: str = ''
         self._logger.info(f'Attempting to upload {file_path}')
         file_name = os.path.basename(file_path)
 
