@@ -249,7 +249,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
 
         if self.snapshot_enabled:
             # Generate the snapshot first.  The message will be sent upon receipt of Events.CAPTURE_DONE
-            self.generate_snapshot()
+            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_IMAGE)
         else:
             # No snapshot so we can send the message immediately
             self.send_message()
