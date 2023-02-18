@@ -33,6 +33,8 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         self.queued_message: Optional[str] = None
         self._capture_dir = settings().getBaseFolder("timelapse_tmp")
         self._snapshot_url = settings().get(["webcam", "snapshot"])
+        self._snapshot_timeout = settings().getInt(["webcam", "snapshotTimeout"])
+        self._snapshot_validate_ssl = settings().getBoolean(["webcam", "snapshotSslValidation"])
 
     def get_settings_defaults(self) -> Dict[str, Any]:
         return {
