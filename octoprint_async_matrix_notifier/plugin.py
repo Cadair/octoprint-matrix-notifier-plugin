@@ -283,6 +283,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
 
     def send_message(self) -> None:
         """ Send a message """
+        self._logger.info(f'Sending message: {self.queued_message}')
         try:
             self.client.room_send_markdown_message(room_id=self.room_id, text=self.queued_message)
         except NetworkError as e:
@@ -290,6 +291,8 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
 
     def _capture_snapshot(self, event: str, payload: Dict[str, Any]) -> None:
         """ Private function to request a snapshot """
+
+        self._logger.info('Capturing snapshot!')
 
         if not self._settings.global_get(["webcam", "snapshot"]):
             self._logger.info(
@@ -304,6 +307,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         )
 
         error: Optional[str] = None
+
         try:
             self._logger.debug(f"Going to capture {filepath} from {self._snapshot_url}")
             r = requests.get(
@@ -364,6 +368,8 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
 
     def _snapshot_event(self, event: str, payload: Dict[str, Any]) -> None:
         """ Called when an image snapshot is done capturing """
+
+        self._logger.info(f'Received snapshot event: {event} with payload {payload}')
 
         if AsyncMatrixNotifierEvents.CAPTURE_DONE == event and payload.get('file', None) is not None:
             self._logger.info('Preparing to send snapshot')
