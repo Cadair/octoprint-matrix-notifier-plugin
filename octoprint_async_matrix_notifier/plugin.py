@@ -339,7 +339,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
             )
         else:
             self._logger.info('Reporting capture is done')
-            eventManager().fire(Events.CAPTURE_DONE, {"file": filename})
+            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_DONE, {"file": filename})
 
     @property
     def room_id(self) -> str:
