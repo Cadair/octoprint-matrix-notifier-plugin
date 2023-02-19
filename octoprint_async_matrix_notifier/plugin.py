@@ -316,6 +316,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
                 timeout=self._snapshot_timeout,
                 verify=self._snapshot_validate_ssl,
             )
+            self._logger.info('Retrieved snapshot')
             r.raise_for_status()
 
             with open(filepath, "wb") as f:
@@ -324,18 +325,20 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
                         f.write(chunk)
                         f.flush()
 
-            self._logger.debug(f"Image {filename} captured from {self._snapshot_url}")
+            self._logger.info(f"Image {filename} captured from {self._snapshot_url}")
         except Exception:
             error_msg = f'Could not capture image {filename} from {self._snapshot_url}'
             self._logger.exception(error_msg, exc_info=True)
             error = error_msg
 
         if error:
+            self._logger.info(f'Reporting error: {error}')
             eventManager().fire(
                 AsyncMatrixNotifierEvents.CAPTURE_ERROR,
                 {"file": filename, "error": str(error), "url": self._snapshot_url},
             )
         else:
+            self._logger.info('Reporting capture is done')
             eventManager().fire(Events.CAPTURE_DONE, {"file": filename})
 
     @property
