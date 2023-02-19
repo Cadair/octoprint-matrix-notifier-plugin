@@ -300,7 +300,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
                 "before enabling sending snapshots!"
             )
 
-        filename = datetime.now().strftime("%Y&m%dT%H:%M:%S") + '.jpg'
+        filename = datetime.now().strftime("%Y%m%dT%H:%M:%S") + '.jpg'
         filepath = os.path.join(
             self._capture_dir,
             filename
@@ -339,7 +339,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
             )
         else:
             self._logger.info('Reporting capture is done')
-            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_DONE, {"file": filename})
+            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_DONE, {"file": filepath})
 
     @property
     def room_id(self) -> str:
