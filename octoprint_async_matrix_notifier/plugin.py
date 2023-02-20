@@ -388,6 +388,9 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
                 self._logger.warning(
                     'Image upload failed.  Sending message without snapshot.')
                 self.send_message(message=message)
+        elif AsyncMatrixNotifierEvents.CAPTURE_ERROR == event and message is not None:
+            message += '\nImage capture failed.'
+            self.send_message(message=message)
         else:
             self._logger.warning(
                 f'Received {event} which is NOT {AsyncMatrixNotifierEvents.CAPTURE_DONE} of type {type(event)} with {payload}')
