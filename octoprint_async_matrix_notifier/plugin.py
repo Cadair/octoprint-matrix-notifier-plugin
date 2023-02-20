@@ -18,6 +18,7 @@ class AsyncMatrixNotifierEvents(Events):
     CAPTURE_IMAGE = 'AsyncCaptureImage'
     CAPTURE_DONE = 'AsyncCaptureDone'
     CAPTURE_ERROR = 'AsyncCaptureError'
+    CAPTURE_COMPLETE = 'AsyncCaptureComplete'
 
 
 class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
@@ -30,7 +31,6 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         super().__init__(*args, **kwargs)
         self._room: Optional[str] = None
         self._room_alias: Optional[str] = None
-        self.queued_message: Optional[str] = None
         self._capture_dir = settings().getBaseFolder("timelapse_tmp")
         self._snapshot_url = settings().get(["webcam", "snapshot"])
         self._snapshot_timeout = settings().getInt(["webcam", "snapshotTimeout"])
@@ -134,6 +134,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_IMAGE, self._capture_snapshot)
         eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_DONE, self._snapshot_event)
         eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_ERROR, self._snapshot_event)
+        eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_COMPLETE, self._cleanup)
 
     def get_template_configs(self) -> List[Dict[str, Any]]:
         """ Retrieve the configurable templates for this plugin """
@@ -247,14 +248,14 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         if "time" in payload:
             keys["elapsed_time"] = octoprint.util.get_formatted_timedelta(timedelta(seconds=payload["time"]))
 
-        self.queued_message = template.format(**keys)
+        message = template.format(**keys)
 
         if self.snapshot_enabled:
             # Generate the snapshot first.  The message will be sent upon receipt of Events.CAPTURE_DONE
-            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_IMAGE)
+            eventManager().fire(event=AsyncMatrixNotifierEvents.CAPTURE_IMAGE, payload={'message': message})
         else:
             # No snapshot so we can send the message immediately
-            self.send_message()
+            self.send_message(message=message)
 
     def on_print_progress(self, storage: str, path: str, progress: int):
         """ Print Progress comes as a separate event.  Handle it here. """
@@ -270,24 +271,24 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
 
         keys = self.generate_message_keys()
         keys["pct_completed"] = progress
-        self.queued_message = template.format(**keys)
+        message = template.format(**keys)
 
         if self.snapshot_enabled:
             # Generate the snapshot first.  The message will be sent upon receipt of AsyncMatrixNotifierEvents.CAPTURE_DONE
             self._logger.info('Generating snapshot...')
             # Fire off an event to asynchronously capture the image
-            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_IMAGE)
+            eventManager().fire(event=AsyncMatrixNotifierEvents.CAPTURE_IMAGE, payload={'message': message})
         else:
             # No snapshot so we can send the message immediately
-            self.send_message()
+            self.send_message(message=message)
 
-    def send_message(self) -> None:
+    def send_message(self, message: str) -> None:
         """ Send a message """
-        self._logger.info(f'Sending message: {self.queued_message}')
+        self._logger.info(f'Sending message: {message}')
         try:
-            self.client.room_send_markdown_message(room_id=self.room_id, text=self.queued_message)
+            self.client.room_send_markdown_message(room_id=self.room_id, text=message)
         except NetworkError as e:
-            self._logger.warning(f'Unable to send message: {self.queued_message} due to {e.message}')
+            self._logger.warning(f'Unable to send message: {message} due to {e.message}')
 
     def _capture_snapshot(self, event: str, payload: Dict[str, Any]) -> None:
         """ Private function to request a snapshot """
@@ -300,6 +301,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
                 "before enabling sending snapshots!"
             )
 
+        message = payload.get('message', None)
         filename = datetime.now().strftime("%Y%m%dT%H:%M:%S") + '.jpg'
         filepath = os.path.join(
             self._capture_dir,
@@ -339,7 +341,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
             )
         else:
             self._logger.info('Reporting capture is done')
-            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_DONE, {"file": filepath})
+            eventManager().fire(AsyncMatrixNotifierEvents.CAPTURE_DONE, {'message': message, 'file': filepath})
 
     @property
     def room_id(self) -> str:
@@ -373,22 +375,40 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         """ Called when an image snapshot is done capturing """
 
         self._logger.info(f'Received snapshot event: {event} with payload {payload}')
+        message = payload.get('message', None)
 
         if AsyncMatrixNotifierEvents.CAPTURE_DONE == event and payload.get('file', None) is not None:
             self._logger.info('Preparing to send snapshot')
             mxc_url = self.upload_snapshot(file_path=payload.get('file'))
             if mxc_url:
-                self.queued_message = self.queued_message + \
+                message = message + \
                     f'\n<img src="{mxc_url}">\n'
-                self.send_message()
+                self.send_message(message=message)
             else:
                 self._logger.warning(
                     'Image upload failed.  Sending message without snapshot.')
-                self.send_message()
+                self.send_message(message=message)
         else:
             self._logger.warning(
                 f'Received {event} which is NOT {AsyncMatrixNotifierEvents.CAPTURE_DONE} of type {type(event)} with {payload}')
-        self.queued_message = None
+
+    def _cleanup(self, event: str, payload: Dict[str, Any]) -> None:
+        """ Cleanup after a successful transmission """
+
+        self._logger.info(f'Cleaning up after payload {payload}')
+
+        if AsyncMatrixNotifierEvents.CAPTURE_COMPLETE == event and payload.get('file', None) is not None:
+            file_path = payload.get('file')
+            self._logger.info(f'Attempting to remove {file_path}')
+            # Remove any tempfiles
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except FileNotFoundError:
+                self._logger.warning(f'File {file_path} does not exist!', exc_info=True)
+        else:
+            self._logger.warning(
+                f'Received {event} which is NOT {AsyncMatrixNotifierEvents.CAPTURE_COMPLETE} of type {type(event)} with {payload}')
 
     def upload_snapshot(self, file_path: str) -> str:
         """
