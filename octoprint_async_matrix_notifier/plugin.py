@@ -9,6 +9,7 @@ from octoprint.events import Events, eventManager
 from octoprint.plugin import (EventHandlerPlugin, ProgressPlugin,
                               SettingsPlugin, StartupPlugin, TemplatePlugin)
 from octoprint.settings import settings
+from octoprint.webcams import get_snapshot_webcam
 
 from .errors import NetworkError
 from .matrix import SimpleMatrixClient
@@ -32,9 +33,12 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         self._room: Optional[str] = None
         self._room_alias: Optional[str] = None
         self._capture_dir = settings().getBaseFolder("timelapse_tmp")
+        
+            
         self._snapshot_url = settings().get(["webcam", "snapshot"])
         self._snapshot_timeout = settings().getInt(["webcam", "snapshotTimeout"])
         self._snapshot_validate_ssl = settings().getBoolean(["webcam", "snapshotSslValidation"])
+        
 
     def get_settings_defaults(self) -> Dict[str, Any]:
         return {
@@ -124,7 +128,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         """ Initialize the plugin after system startup """
 
         user_id = self.client.whoami().get("user_id", None)
-        self._logger.info("Logged into matrix as user: %s", user_id)
+        self._logger.info(f"Logged into matrix as user: {user_id}")
         monitored_events = self._settings.get(['events'])
         if monitored_events:
             self._logger.info(
@@ -135,6 +139,9 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_DONE, self._snapshot_event)
         eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_ERROR, self._snapshot_event)
         eventManager().subscribe(AsyncMatrixNotifierEvents.CAPTURE_COMPLETE, self._cleanup)
+    
+    def get_snapshot_url(self) -> str:
+        return settings().get(["webcam", "snapshot"])
 
     def get_template_configs(self) -> List[Dict[str, Any]]:
         """ Retrieve the configurable templates for this plugin """
@@ -250,7 +257,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
 
         message = template.format(**keys)
 
-        if self.snapshot_enabled:
+        if self.snapshot_enabled and self.get_snapshot_url():
             # Generate the snapshot first.  The message will be sent upon receipt of Events.CAPTURE_DONE
             eventManager().fire(event=AsyncMatrixNotifierEvents.CAPTURE_IMAGE, payload={'message': message})
         else:
@@ -302,7 +309,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
             )
 
         message = payload.get('message', None)
-        filename = datetime.now().strftime("%Y%m%dT%H:%M:%S") + '.jpg'
+        filename = datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + '.jpg'
         filepath = os.path.join(
             self._capture_dir,
             filename
@@ -311,9 +318,9 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
         error: Optional[str] = None
 
         try:
-            self._logger.debug(f"Going to capture {filepath} from {self._snapshot_url}")
+            self._logger.debug(f"Going to capture {filepath} from {self.get_snapshot_url()}")
             r = requests.get(
-                self._snapshot_url,
+                self.get_snapshot_url(),
                 stream=True,
                 timeout=self._snapshot_timeout,
                 verify=self._snapshot_validate_ssl,
@@ -327,9 +334,9 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
                         f.write(chunk)
                         f.flush()
 
-            self._logger.info(f"Image {filename} captured from {self._snapshot_url}")
+            self._logger.info(f"Image {filename} captured from {self.get_snapshot_url()}")
         except Exception:
-            error_msg = f'Could not capture image {filename} from {self._snapshot_url}'
+            error_msg = f'Could not capture image {filename} from {self.get_snapshot_url()}'
             self._logger.exception(error_msg, exc_info=True)
             error = error_msg
 
@@ -337,7 +344,7 @@ class AsyncMatrixNotifierPlugin(EventHandlerPlugin,
             self._logger.info(f'Reporting error: {error}')
             eventManager().fire(
                 AsyncMatrixNotifierEvents.CAPTURE_ERROR,
-                {"file": filename, "error": str(error), "url": self._snapshot_url},
+                {"file": filename, "error": str(error), "url": self.get_snapshot_url()},
             )
         else:
             self._logger.info('Reporting capture is done')
