@@ -1,7 +1,7 @@
 {
   "template": "https://github.com/OctoPrint/cookiecutter-octoprint-plugin",
-  "commit": "1076e9543e431a1d0de5e6a63af482990801ef07",
-  "checkout": "1076e9543e431a1d0de5e6a63af482990801ef07",
+  "commit": "d0a2eb52875613c9d23d23d7890c938df502011a",
+  "checkout": null,
   "context": {
     "cookiecutter": {
       "plugin_identifier": "matrix_notifier",

@@ -39,16 +39,14 @@ compatibility:
   # You can also remove the whole "octoprint" block. Removing it will default to all
   # OctoPrint versions being supported.
   octoprint:
-  - 1.2.0
+  - 1.4.0
   # Compatible Python version
   #
-  # Plugins should aim for compatibility for Python 2 and 3 for now, in which case the value should be ">=2.7,<4".
+  # It is recommended to only support Python 3 for new plugins, in which case this should be ">=3,<4"
   #
-  # Plugins that only wish to support Python 3 should set it to ">=3,<4".
+  # Plugins that wish to support both Python 2 and 3 should set it to ">=2.7,<4".
   #
-  # If your plugin only supports Python 2 (worst case, not recommended for newly developed plugins since Python 2
-  # is EOL), leave at ">=2.7,<3" - be aware that your plugin will not be allowed to register on the
-  # plugin repository if it only support Python 2.
+  # Plugins that only support Python 2 will not be accepted into the plugin repository.
   python: ">=3,<4"
 
 ---
