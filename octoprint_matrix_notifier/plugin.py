@@ -1,16 +1,15 @@
 import datetime
 import io
-import time
 import threading
+import time
+import urllib.request
 from pathlib import Path
 from textwrap import dedent
-
-import requests
-from PIL import Image
 
 import octoprint.plugin
 import octoprint.util
 from get_image_size import get_image_size_from_bytesio
+from PIL import Image
 
 from .matrix import SimpleMatrixClient
 
@@ -274,7 +273,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         raise ValueError("The room configuration option must start with ! or #")
 
-    def get_snapshot_confis(self):
+    def get_snapshot_config(self):
         # get MultiCam urls
         multi_cam_urls = self._settings.global_get(["plugins", "multicam","multicam_profiles"])
         if multi_cam_urls != None:
@@ -300,7 +299,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         Capture and then send a snapshot from the camera.
         """
         # take snapshots in parallel
-        for cam in self.get_snapshot_confis():
+        for cam in self.get_snapshot_config():
             self.send_snapshot_t(cam)
 
     @threaded
@@ -339,8 +338,14 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         data = None
         if snapshot_url:
             try:
-                r = requests.get(snapshot_url, timeout=10, proxies=self.http_proxy)
-                data = r.content
+                # Create a proxy handler and an opener with the proxy
+                proxy_handler = urllib.request.ProxyHandler(http_proxy)
+                opener = urllib.request.build_opener(proxy_handler)
+
+                # Make the request with a timeout of 10 seconds
+                with opener.open(snapshot_url, timeout=10) as response:
+                    data = response.read()
+
             except Exception as e:
                 self._logger.exception("Exception while retrieving snapshot URL: %s", e)
                 return None
@@ -348,8 +353,10 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         self._logger.debug(
             "Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate
         )
+
         if data == None:
             return None
+
         if flipH or flipV or rotate:
             image = Image.open(io.BytesIO(data))
             if flipH:

@@ -14,7 +14,7 @@ plugin_package = "octoprint_matrix_notifier"
 plugin_name = "Matrix Notifier"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "0.2.4"
+plugin_version = "0.2.2"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -38,7 +38,6 @@ plugin_requires = [
     "opsdroid-get-image-size",
     "beautifulsoup4",
     "pillow",
-    "requests[socks]"
 ]
 
 ### --------------------------------------------------------------------------------------------------------------------
