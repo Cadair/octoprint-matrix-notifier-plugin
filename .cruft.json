@@ -1,0 +1,24 @@
+{
+  "template": "https://github.com/OctoPrint/cookiecutter-octoprint-plugin",
+  "commit": "1076e9543e431a1d0de5e6a63af482990801ef07",
+  "checkout": "1076e9543e431a1d0de5e6a63af482990801ef07",
+  "context": {
+    "cookiecutter": {
+      "plugin_identifier": "matrix_notifier",
+      "plugin_package": "octoprint_matrix_notifier",
+      "plugin_name": "Matrix Notifier",
+      "repo_name": "octoprint-matrix-notifier-plugin",
+      "full_name": "Stuart Mumford",
+      "email": "stuart@cadair.com",
+      "github_username": "Cadair",
+      "plugin_version": "0.2.2",
+      "plugin_description": "Sends matrix notifications and snapshots of your print.",
+      "plugin_license": "AGPLv3",
+      "plugin_homepage": "https://github.com/Cadair/octoprint-matrix-notifier-plugin",
+      "plugin_source": "https://github.com/Cadair/octoprint-matrix-notifier-plugin",
+      "plugin_installurl": "https://github.com/Cadair/octoprint-matrix-notifier-plugin/archive/main.zip",
+      "_template": "https://github.com/OctoPrint/cookiecutter-octoprint-plugin"
+    }
+  },
+  "directory": null
+}
