@@ -2,7 +2,10 @@ import octoprint.plugin
 
 from .plugin import MatrixNotifierPlugin
 
-__plugin_pythoncompat__ = ">=3,<4" # only python 3
+# Set the Python version your plugin is compatible with below. Recommended is Python 3 only for all new plugins.
+# OctoPrint 1.4.0 - 1.7.x run under both Python 3 and the end-of-life Python 2.
+# OctoPrint 1.8.0 onwards only supports Python 3.
+__plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
 
 def __plugin_load__():
     global __plugin_implementation__
