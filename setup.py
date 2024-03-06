@@ -35,7 +35,9 @@ plugin_license = "AGPLv3"
 # Any additional requirements besides OctoPrint should be listed here
 plugin_requires = [
     "matrix-nio",
-    "opsdroid-get-image-size"
+    "opsdroid-get-image-size",
+    "beautifulsoup4",
+    "pillow",
 ]
 
 ### --------------------------------------------------------------------------------------------------------------------

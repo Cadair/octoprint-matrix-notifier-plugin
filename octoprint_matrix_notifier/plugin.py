@@ -1,16 +1,25 @@
 import datetime
 import io
+import threading
 import time
+import urllib.request
 from pathlib import Path
 from textwrap import dedent
 
 import octoprint.plugin
 import octoprint.util
 from get_image_size import get_image_size_from_bytesio
-from octoprint.timelapse import Timelapse
+from PIL import Image
 
 from .matrix import SimpleMatrixClient
 
+
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        t = threading.Thread(target=fn, args=args, kwargs=kwargs)
+        t.daemon = True
+        t.start()
+    return wrapper
 
 class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                            octoprint.plugin.ProgressPlugin,
@@ -31,6 +40,12 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             "room": "#myprinter:matrix.org",
             "send_snapshot": True,
             "events": {
+                "Startup": {
+                    "template": dedent("""\
+                    ## Printer Started ⭐
+                    """),
+                    "enabled": True,
+                },
                 "PrintStarted": {
                     "template": dedent("""\
                     ## Print Started 🚀
@@ -231,30 +246,6 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         if self._settings.get(["send_snapshot"]):
             self.send_snapshot()
 
-    def capture_snapshot(self):
-        if not self._settings.global_get(["webcam", "snapshot"]):
-            self._logger.info(
-                "Please configure the webcam snapshot settings "
-                "before enabling sending snapshots!"
-            )
-
-        tl = Timelapse()
-        tl._image_number = 0
-        tl._capture_errors = 0
-        tl._capture_success = 0
-        tl._in_timelapse = True
-        tl._file_prefix = time.strftime("%Y%m%d%H%M%S")
-        file_path = Path(tl.capture_image())
-
-        # Ensure the file has actually finished being written before we return
-        # There appears to be a threading race condition or something going on here
-        for i in range(10):
-            if file_path.exists():
-                break
-            time.sleep(0.1)
-
-        return file_path
-
     @property
     def room_id(self):
         """
@@ -282,14 +273,39 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         raise ValueError("The room configuration option must start with ! or #")
 
+    def get_snapshot_config(self):
+        # get MultiCam urls
+        multi_cam_urls = self._settings.global_get(["plugins", "multicam","multicam_profiles"])
+        if multi_cam_urls != None:
+            self._logger.debug("found multicam config %s", multi_cam_urls)
+            return multi_cam_urls
+
+        config = []
+        snapshot_url = self._settings.global_get(["webcam", "snapshot"])
+        if snapshot_url != None:
+            config.append({
+                'name': 'webcam',
+                'snapshot': snapshot_url,
+                'flipH': self._settings.global_get(["webcam", "flipH"]),
+                'flipV': self._settings.global_get(["webcam", "flipV"]),
+                'rotate90': self._settings.global_get(["webcam", "rotate90"])
+            })
+
+        self._logger.debug("cam config %s", config)
+        return config
+
     def send_snapshot(self):
         """
         Capture and then send a snapshot from the camera.
         """
-        file_path = self.capture_snapshot()
+        # take snapshots in parallel
+        for cam in self.get_snapshot_config():
+            self.send_snapshot_t(cam)
 
-        with open(file_path, "rb") as fobj:
-            data = fobj.read()
+    @threaded
+    def send_snapshot_t(self, cam):
+        self._logger.debug("send_snapshot_t %s", cam)
+        data = self.take_image(cam['snapshot'], cam['flipH'], cam['flipV'], cam['rotate90'])
 
         mxc_url = self.client.upload_media(data, "image/jpg")["content_uri"]
 
@@ -297,9 +313,64 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         content = {
             "msgtype": "m.image",
-            "body": file_path.name,
+            "body": cam['name'] + "_" + time.strftime("%Y_%m_%d-%H_%M_%S") + ".jpg",
             "info": {"mimetype": "image/jpg", "w": img_w, "h": img_h},
             "url": mxc_url,
         }
 
-        return self.client.room_send(self.room_id, "m.room.message", content)
+        self.client.room_send(self.room_id, "m.room.message", content)
+
+    @property
+    def http_proxy(self):
+        http_proxy = self._settings.get(["http_proxy"])
+        https_proxy = self._settings.get(["https_proxy"])
+        return {"http": http_proxy, "https": https_proxy}
+
+    def take_image(self, snapshot_url=None, flipH=False, flipV=False, rotate=False):
+        if snapshot_url == None:
+            self._logger.info(
+                "Please configure the webcam snapshot settings "
+                "before enabling sending snapshots!"
+            )
+            return None
+
+        self._logger.debug("Snapshot URL: %s", snapshot_url)
+        data = None
+        if snapshot_url:
+            try:
+                # Create a proxy handler and an opener with the proxy
+                proxy_handler = urllib.request.ProxyHandler(http_proxy)
+                opener = urllib.request.build_opener(proxy_handler)
+
+                # Make the request with a timeout of 10 seconds
+                with opener.open(snapshot_url, timeout=10) as response:
+                    data = response.read()
+
+            except Exception as e:
+                self._logger.exception("Exception while retrieving snapshot URL: %s", e)
+                return None
+
+        self._logger.debug(
+            "Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate
+        )
+
+        if data == None:
+            return None
+
+        if flipH or flipV or rotate:
+            image = Image.open(io.BytesIO(data))
+            if flipH:
+                image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            if flipV:
+                image = image.transpose(Image.FLIP_TOP_BOTTOM)
+            if rotate:
+                if not self._settings.get_boolean(["invertImgRot"]):
+                    image = image.transpose(Image.ROTATE_270)
+                else:
+                    image = image.transpose(Image.ROTATE_90)
+            output = io.BytesIO()
+            image.save(output, format="JPEG")
+            data = output.getvalue()
+            output.close()
+
+        return data
