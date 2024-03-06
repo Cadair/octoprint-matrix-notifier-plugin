@@ -29,7 +29,26 @@ screenshots:
 featuredimage: /assets/img/plugins/printstarted.png
 
 compatibility:
+  # List of compatible versions
+  #
+  # A single version number will be interpretated as a minimum version requirement,
+  # e.g. "1.3.1" will show the plugin as compatible to OctoPrint versions 1.3.1 and up.
+  # More sophisticated version requirements can be modelled too by using PEP440
+  # compatible version specifiers.
+  #
+  # You can also remove the whole "octoprint" block. Removing it will default to all
+  # OctoPrint versions being supported.
+  octoprint:
+  - 1.2.0
   # Compatible Python version
+  #
+  # Plugins should aim for compatibility for Python 2 and 3 for now, in which case the value should be ">=2.7,<4".
+  #
+  # Plugins that only wish to support Python 3 should set it to ">=3,<4".
+  #
+  # If your plugin only supports Python 2 (worst case, not recommended for newly developed plugins since Python 2
+  # is EOL), leave at ">=2.7,<3" - be aware that your plugin will not be allowed to register on the
+  # plugin repository if it only support Python 2.
   python: ">=3,<4"
 
 ---
