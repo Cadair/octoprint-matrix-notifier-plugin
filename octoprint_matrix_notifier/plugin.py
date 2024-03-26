@@ -304,8 +304,12 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
     @threaded
     def send_snapshot_t(self, cam):
-        self._logger.debug("send_snapshot_t %s", cam)
+        self._logger.debug("Sending snapshot from camera %s", cam)
         data = self.take_image(cam['snapshot'], cam['flipH'], cam['flipV'], cam['rotate90'])
+
+        if data is None:
+            self._logger.error("Could not get data from camera, not sending snapshot.")
+            return
 
         mxc_url = self.client.upload_media(data, "image/jpg")["content_uri"]
 
@@ -322,24 +326,31 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
     @property
     def http_proxy(self):
+        proxy = {}
         http_proxy = self._settings.get(["http_proxy"])
+        if http_proxy:
+            proxy["http"] = http_proxy
+
         https_proxy = self._settings.get(["https_proxy"])
-        return {"http": http_proxy, "https": https_proxy}
+        if https_proxy:
+            proxy["https"] = https_proxy
+        return proxy
 
     def take_image(self, snapshot_url=None, flipH=False, flipV=False, rotate=False):
-        if snapshot_url == None:
+        data = None
+        if snapshot_url is None:
             self._logger.info(
                 "Please configure the webcam snapshot settings "
                 "before enabling sending snapshots!"
             )
-            return None
+            return
 
         self._logger.debug("Snapshot URL: %s", snapshot_url)
-        data = None
+
         if snapshot_url:
             try:
                 # Create a proxy handler and an opener with the proxy
-                proxy_handler = urllib.request.ProxyHandler(http_proxy)
+                proxy_handler = urllib.request.ProxyHandler(self.http_proxy)
                 opener = urllib.request.build_opener(proxy_handler)
 
                 # Make the request with a timeout of 10 seconds
@@ -354,10 +365,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             "Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate
         )
 
-        if data == None:
-            return None
-
-        if flipH or flipV or rotate:
+        if data is not None and (flipH or flipV or rotate):
             image = Image.open(io.BytesIO(data))
             if flipH:
                 image = image.transpose(Image.FLIP_LEFT_RIGHT)
