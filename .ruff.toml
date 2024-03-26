@@ -1,0 +1,66 @@
+target-version = "py310"
+line-length = 110
+exclude = [
+  ".git,",
+  "__pycache__",
+  "build",
+]
+
+[lint]
+select = [
+  "F",
+  "E",
+  "W",
+  "UP",
+  "C4",
+  "ICN",
+  "G",
+  "INP",
+  "PT",
+  "Q",
+  "RSE",
+  "RET",
+  "TID",
+  "PTH",
+  "NPY",
+  "RUF",
+]
+extend-ignore = [
+  # pytest (PT)
+  "PT001", # Always use pytest.fixture()
+  "PT004", # Fixtures which don't return anything should have leading _
+  "PT007", # Parametrize should be lists of tuples  # TODO! fix
+  "PT011", # Too broad exception assert             # TODO! fix
+  "PT023", # Always use () on pytest decorators
+  # pyupgrade
+  "UP038", # Use | in isinstance - not compatible with models and is slower
+  # Returns (RET)
+  "RET502",  # Do not implicitly return None in function able to return non-None value
+  "RET503",  # Missing explicit return at the end of function able to return non-None value
+  # Pathlib (PTH)
+  "PTH123",  # open() should be replaced by Path.open()
+  # Ruff
+  "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+  "RUF013",  # PEP 484 prohibits implicit `Optional`
+  "RUF015",  # Prefer `next(iter(...))` over single element slice
+]
+
+[lint.per-file-ignores]
+# Part of configuration, not a package.
+"setup.py" = [
+  "INP001",
+  "E402",
+  "E501",
+  "E722",
+]
+"conftest.py" = ["INP001"]
+"docs/conf.py" = [
+  "E402"  # Module imports not at top of file
+]
+"docs/*.py" = [
+  "INP001",  # Implicit-namespace-package. The examples are not a package.
+]
+"__init__.py" = ["E402", "F401", "F403"]
+
+[lint.pydocstyle]
+convention = "numpy"

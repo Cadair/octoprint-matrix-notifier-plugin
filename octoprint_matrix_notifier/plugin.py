@@ -3,7 +3,6 @@ import io
 import threading
 import time
 import urllib.request
-from pathlib import Path
 from textwrap import dedent
 
 import octoprint.plugin
@@ -19,14 +18,17 @@ def threaded(fn):
         t = threading.Thread(target=fn, args=args, kwargs=kwargs)
         t.daemon = True
         t.start()
+
     return wrapper
 
-class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
-                           octoprint.plugin.ProgressPlugin,
-                           octoprint.plugin.SettingsPlugin,
-                           octoprint.plugin.TemplatePlugin,
-                           octoprint.plugin.StartupPlugin):
 
+class MatrixNotifierPlugin(
+    octoprint.plugin.EventHandlerPlugin,
+    octoprint.plugin.ProgressPlugin,
+    octoprint.plugin.SettingsPlugin,
+    octoprint.plugin.TemplatePlugin,
+    octoprint.plugin.StartupPlugin,
+):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._room = None
@@ -41,46 +43,55 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             "send_snapshot": True,
             "events": {
                 "Startup": {
-                    "template": dedent("""\
+                    "template": dedent(
+                        """\
                     ## Printer Started ⭐
-                    """),
+                    """
+                    ),
                     "enabled": True,
                 },
                 "PrintStarted": {
-                    "template": dedent("""\
+                    "template": dedent(
+                        """\
                     ## Print Started 🚀
 
                     **File**: {filename}
                     **User**: {user}
                     **Estimated Print Time**: {total_estimated_time}
                     {temperature}
-                    """),
+                    """
+                    ),
                     "enabled": True,
                 },
                 "PrintDone": {
-                    "template": dedent("""\
+                    "template": dedent(
+                        """\
                     ## Print Completed 🚀
 
                     **File**: {filename}
                     **User**: {user}
                     **Elapsed Time**: {elapsed_time}
                     {temperature}
-                    """),
+                    """
+                    ),
                     "enabled": True,
                 },
                 "PrintFailed": {
-                    "template": dedent("""\
+                    "template": dedent(
+                        """\
                     ## Print Failed 😞
 
                     **File**: {filename}
                     **User**: {user}
                     **Elapsed Time**: {elapsed_time}
                     {temperature}
-                    """),
+                    """
+                    ),
                     "enabled": True,
                 },
                 "PrintPaused": {
-                    "template": dedent("""\
+                    "template": dedent(
+                        """\
                     ## Print Paused ⏸️
 
                     **File**: {filename}
@@ -89,11 +100,13 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                     **Remaining Time**: {remaining_time}
                     **Total Estimated Time**:{total_estimated_time}
                     {temperature}
-                    """),
+                    """
+                    ),
                     "enabled": True,
                 },
                 "progress": {
-                    "template": dedent("""\
+                    "template": dedent(
+                        """\
                     ## Print Progress {pct_completed}% 🏃
 
                     **File**: {filename}
@@ -102,11 +115,12 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                     **Remaining Time**: {remaining_time}
                     **Total Estimated Time**:{total_estimated_time}
                     {temperature}
-                    """),
+                    """
+                    ),
                     "enabled": True,
                     "interval": 10,
-                }
-            }
+                },
+            },
         }
 
     @property
@@ -116,16 +130,18 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         This is a property to react to configuration changes without reloading the plugin.
         """
-        return SimpleMatrixClient(self._settings.get(['homeserver']),
-                                  access_token=self._settings.get(['access_token']),
-                                  logger=self._logger)
+        return SimpleMatrixClient(
+            self._settings.get(["homeserver"]),
+            access_token=self._settings.get(["access_token"]),
+            logger=self._logger,
+        )
 
     def on_after_startup(self):
         user_id = self.client.whoami()["user_id"]
         self._logger.info("Logged into matrix as user: %s", user_id)
 
     def get_template_configs(self):
-        return [dict(type="settings", name="Matrix Notifier", custom_bindings=False)]
+        return [{"type": "settings", "name": "Matrix Notifier", "custom_bindings": False}]
 
     def get_update_information(self):
         # Define the configuration for your plugin to use with the Software Update
@@ -135,13 +151,11 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             "matrix_notifier": {
                 "displayName": "Matrix Notifier Plugin",
                 "displayVersion": self._plugin_version,
-
                 # version check: github repository
                 "type": "github_release",
                 "user": "Cadair",
                 "repo": "octoprint-matrix-notifier-plugin",
                 "current": self._plugin_version,
-
                 # update method: pip
                 "pip": "https://github.com/Cadair/octoprint-matrix-notifier-plugin/archive/{target_version}.zip",
             }
@@ -171,9 +185,12 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                 tool_name = key.replace("tool", "Nozzle ")
 
             tools_components.append(
-                tool_template.format(tool_name=tool_name,
-                                     current_temp=printer_temps[key]["actual"],
-                                     target_temp=printer_temps[key]["target"]))
+                tool_template.format(
+                    tool_name=tool_name,
+                    current_temp=printer_temps[key]["actual"],
+                    target_temp=printer_temps[key]["target"],
+                )
+            )
 
         tool_string = " ".join(tools_components)
 
@@ -191,7 +208,9 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         keys["temperature"] = self.temperature_status_string
         printer_data = self._printer.get_current_data()
         keys["remaining_time"] = self._seconds_delta_to_string(printer_data["progress"]["printTimeLeft"])
-        keys["total_estimated_time"] = self._seconds_delta_to_string(printer_data["job"]["estimatedPrintTime"])
+        keys["total_estimated_time"] = self._seconds_delta_to_string(
+            printer_data["job"]["estimatedPrintTime"]
+        )
         keys["elapsed_time"] = self._seconds_delta_to_string(printer_data["progress"]["printTime"])
         keys["user"] = printer_data["job"]["user"]
         keys["filename"] = printer_data["job"]["file"]["name"]
@@ -205,7 +224,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         if not self._settings.get(["events", event]):
             return
 
-        payload = payload or dict()
+        payload = payload or {}
 
         self._logger.info("Got event %s with payload %s", event, payload)
 
@@ -213,13 +232,11 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
             template = self._settings.get(["events", event, "template"])
 
         keys = self.generate_message_keys()
-        keys = {
-            "reason": payload.get("reason", None),
-            "elapsed_time": None,
-            **keys
-        }
+        keys = {"reason": payload.get("reason", None), "elapsed_time": None, **keys}
         if "time" in payload:
-            keys["elapsed_time"] = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=payload["time"]))
+            keys["elapsed_time"] = octoprint.util.get_formatted_timedelta(
+                datetime.timedelta(seconds=payload["time"])
+            )
 
         message = template.format(**keys)
 
@@ -232,7 +249,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         # Do not report if no progress, the progress isn't a multiple of
         # interval or the progress is 100% because we have PrintCompleted for
         # that.
-        if not progress or not(progress / interval == progress // interval) or progress == 100:
+        if not progress or not (progress / interval == progress // interval) or progress == 100:
             return
 
         if self._settings.get(["events", "progress", "enabled"]):
@@ -275,21 +292,23 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
     def get_snapshot_config(self):
         # get MultiCam urls
-        multi_cam_urls = self._settings.global_get(["plugins", "multicam","multicam_profiles"])
-        if multi_cam_urls != None:
+        multi_cam_urls = self._settings.global_get(["plugins", "multicam", "multicam_profiles"])
+        if multi_cam_urls is not None:
             self._logger.debug("found multicam config %s", multi_cam_urls)
             return multi_cam_urls
 
         config = []
         snapshot_url = self._settings.global_get(["webcam", "snapshot"])
-        if snapshot_url != None:
-            config.append({
-                'name': 'webcam',
-                'snapshot': snapshot_url,
-                'flipH': self._settings.global_get(["webcam", "flipH"]),
-                'flipV': self._settings.global_get(["webcam", "flipV"]),
-                'rotate90': self._settings.global_get(["webcam", "rotate90"])
-            })
+        if snapshot_url is not None:
+            config.append(
+                {
+                    "name": "webcam",
+                    "snapshot": snapshot_url,
+                    "flipH": self._settings.global_get(["webcam", "flipH"]),
+                    "flipV": self._settings.global_get(["webcam", "flipV"]),
+                    "rotate90": self._settings.global_get(["webcam", "rotate90"]),
+                }
+            )
 
         self._logger.debug("cam config %s", config)
         return config
@@ -305,7 +324,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
     @threaded
     def send_snapshot_t(self, cam):
         self._logger.debug("Sending snapshot from camera %s", cam)
-        data = self.take_image(cam['snapshot'], cam['flipH'], cam['flipV'], cam['rotate90'])
+        data = self.take_image(cam["snapshot"], cam["flipH"], cam["flipV"], cam["rotate90"])
 
         if data is None:
             self._logger.error("Could not get data from camera, not sending snapshot.")
@@ -317,7 +336,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
 
         content = {
             "msgtype": "m.image",
-            "body": cam['name'] + "_" + time.strftime("%Y_%m_%d-%H_%M_%S") + ".jpg",
+            "body": cam["name"] + "_" + time.strftime("%Y_%m_%d-%H_%M_%S") + ".jpg",
             "info": {"mimetype": "image/jpg", "w": img_w, "h": img_h},
             "url": mxc_url,
         }
@@ -340,8 +359,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
         data = None
         if snapshot_url is None:
             self._logger.info(
-                "Please configure the webcam snapshot settings "
-                "before enabling sending snapshots!"
+                "Please configure the webcam snapshot settings " "before enabling sending snapshots!"
             )
             return
 
@@ -361,9 +379,7 @@ class MatrixNotifierPlugin(octoprint.plugin.EventHandlerPlugin,
                 self._logger.exception("Exception while retrieving snapshot URL: %s", e)
                 return None
 
-        self._logger.debug(
-            "Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate
-        )
+        self._logger.debug("Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate)
 
         if data is not None and (flipH or flipV or rotate):
             image = Image.open(io.BytesIO(data))
