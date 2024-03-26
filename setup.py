@@ -1,5 +1,3 @@
-# coding=utf-8
-
 ########################################################################################################################
 ### Do not forget to adjust the following variables to your own plugin.
 

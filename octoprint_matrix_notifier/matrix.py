@@ -1,6 +1,7 @@
 """
 A *really* barebones matrix client.
 """
+
 import json
 import logging
 from bs4 import BeautifulSoup
@@ -25,11 +26,7 @@ class SimpleMatrixClient:
     def _send(self, method, path, data=None, content_type=None, content_length=None):
         url = urljoin(self.homeserver, path)
 
-        headers = (
-            {"Content-Type": content_type}
-            if content_type
-            else {"Content-Type": "application/json"}
-        )
+        headers = {"Content-Type": content_type} if content_type else {"Content-Type": "application/json"}
 
         if content_length is not None:
             headers["Content-Length"] = str(content_length)
@@ -40,7 +37,9 @@ class SimpleMatrixClient:
             log_data = data
 
         req = Request(url, data=data, headers=headers, method=method)
-        self.logger.info("%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), log_data, headers)
+        self.logger.info(
+            "%s %s data=%s headers=%s", method, url.replace(self.access_token, "..."), log_data, headers
+        )
 
         resp = urlopen(req)
         # TODO: Detect matrix errors here
@@ -56,9 +55,7 @@ class SimpleMatrixClient:
         Send a message to a room.
         """
         uuid = uuid4()
-        method, path, data = Api.room_send(
-            self.access_token, room_id, message_type, content, uuid
-        )
+        method, path, data = Api.room_send(self.access_token, room_id, message_type, content, uuid)
 
         return self._send(method, path, data)
 
@@ -79,11 +76,11 @@ class SimpleMatrixClient:
         )
 
     def room_send_markdown_message(self, room_id, text):
-        html = markdown.markdown(text, extensions=['nl2br'])
+        html = markdown.markdown(text, extensions=["nl2br"])
         content = {
             "msgtype": "m.text",
-            "body": BeautifulSoup(html, 'html.parser').get_text(),
+            "body": BeautifulSoup(html, "html.parser").get_text(),
             "format": "org.matrix.custom.html",
-            "formatted_body": html
+            "formatted_body": html,
         }
         self.room_send(room_id, "m.room.message", content)
