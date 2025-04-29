@@ -359,7 +359,7 @@ class MatrixNotifierPlugin(
         data = None
         if snapshot_url is None:
             self._logger.info(
-                "Please configure the webcam snapshot settings " "before enabling sending snapshots!"
+                "Please configure the webcam snapshot settings before enabling sending snapshots!"
             )
             return
 
