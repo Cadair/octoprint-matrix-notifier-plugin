@@ -24,4 +24,4 @@ repos:
         args: [ "--write-changes" ]
 ci:
   autofix_prs: true
-  autoupdate_schedule: "weekly"
+  autoupdate_schedule: "quarterly"
