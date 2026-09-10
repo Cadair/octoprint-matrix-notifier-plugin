@@ -1,0 +1,48 @@
+[build-system]
+requires = [
+    "setuptools>=68",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Matrix-Notifier"
+version = "0.3.0"
+description = "Sends matrix notifications and snapshots of your print."
+authors = [
+    { name = "Stuart Mumford", email = "stuart@cadair.com" },
+]
+requires-python = ">=3,<4"
+dependencies = [
+    "matrix-nio",
+    "opsdroid-get-image-size",
+    "beautifulsoup4",
+    "pillow",
+]
+dynamic = [
+    "license",
+]
+
+[project.entry-points."octoprint.plugin"]
+matrix_notifier = "octoprint_matrix_notifier"
+
+[project.urls]
+Homepage = "https://github.com/Cadair/octoprint-matrix-notifier-plugin"
+
+[project.optional-dependencies]
+develop = [
+    "go-task-bin",
+    "pytest"
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = [
+    "octoprint_matrix_notifier",
+    "octoprint_matrix_notifier.*",
+]
