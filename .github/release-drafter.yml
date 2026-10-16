@@ -15,6 +15,8 @@ categories:
       - 'documentation'
 exclude-labels:
   - 'infrastructure'
+exclude-contributors:
+  - pre-commit-ci
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 template: |
   ## Changes
